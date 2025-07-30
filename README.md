@@ -1,186 +1,81 @@
-# 🤖 JeweledTech Agentic Framework
+# JeweledTech Agentic OS: Your Business-in-a-Box
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?logo=docker&logoColor=white)](https://www.docker.com/)
+Build, automate, and scale your entire company with a digital workforce. JeweledTech's Agentic OS is an open-source framework for scaffolding a complete enterprise, from sales and marketing to product development and back-office operations, and a complete security as a service department using a hierarchy of collaborative AI agents.
 
-An open-source framework for building powerful multi-agent AI systems. Create autonomous agents that can research, write, analyze, and collaborate to solve complex tasks.
+This isn't just another AI agent creation tool. It's a blueprint for architecting a fully functional, scalable business where AI agents act as department heads, managers, and specialized workers, all orchestrated to achieve your strategic goals. It's designed for entrepreneurs, startups, and SMBs who need to scale efficiently without the immediate overhead of a large human workforce.
 
-## 🚀 Quick Start
+## The Vision: From Startup Idea to Scaled Enterprise, Instantly
 
-Get up and running in less than 5 minutes:
+Imagine starting a new company. Instead of hiring a full C-suite, department heads, and operational staff, you deploy a pre-built digital enterprise. Your company starts with a fully functional structure, ready to execute on day one:
 
-```bash
-# Clone the repository
-git clone https://github.com/jeweledtech/agentic-framework.git
-cd agentic-framework
+- **A Head of Sales** that analyzes inbound leads and directs a team of AI agents to qualify them.
+- **A Marketing Department** that generates content, manages social media, and nurtures leads.
+- **A Product & Engineering Team** that can architect, develop, and test software solutions autonomously.
+- **A Back Office** that handles financial reporting and payroll.
+- **A Customer Success Team** that onboards new clients and manages support.
 
-# Copy environment variables
-cp .env.example .env
+This is the power of the JeweledTech Agentic OS. It provides the foundational scaffolding to build this digital workforce, allowing you to focus on strategy and growth while your AI team handles the operations.
 
-# Start the framework
-docker-compose up
+## Key Features of the Community Edition
 
-# Access the API
-curl http://localhost:8000
-```
+The open-source version provides the core engine for you to start building your digital enterprise:
 
-Visit `http://localhost:8000/docs` for interactive API documentation.
+- **Enterprise Scaffolding**: A complete, hierarchical structure for defining departments, managers, and specialized agents that mirrors a real-world company.
+- **Core Agent Engine**: Based on a powerful BaseAgent class and orchestrated with CrewAI, allowing for complex, multi-agent collaboration.
+- **Generalist Business Agent**: Includes a pre-built "Business Process Analyst" agent capable of general reasoning, analysis, and tool use to get you started.
+- **Local Knowledge Base (RAG)**: Integrated with privateGPT and ChromaDB, allowing your agents to securely learn from your private documents (.pdf, .txt, .md) and build a company-specific knowledge core.
+- **Simple Deployment**: A docker-compose.yml setup for a one-command launch of the entire local environment, including the FastAPI server, Ollama for local LLM inference, and a basic chat UI.
+- **Extensible by Design**: A clear framework for you to build out your own specialized departments and agents, tailored to your unique business needs.
 
-## 🎯 Why JeweledTech Agentic Framework?
+## How It Works: The Agentic Hierarchy
 
-- **Multi-Agent Orchestration**: Create crews of specialized agents that work together
-- **Extensible Architecture**: Easy to add custom agents and tools
-- **Production-Ready Core**: Built on proven technologies (CrewAI, LangChain, FastAPI)
-- **Local-First**: Runs entirely on your infrastructure with Ollama
-- **Developer-Friendly**: Clear APIs, comprehensive documentation, and examples
+The system is designed around a familiar corporate structure:
 
-## 📚 Core Concepts
+1. **The Chief AI Agent**: The central orchestrator that receives high-level goals.
+2. **Department Heads**: Specialized agents (e.g., Head of Sales) that break down goals into department-specific strategies.
+3. **Managers & Workers**: Further specialized agents that execute specific tasks (e.g., Inbound Lead Qualifier, Content Writer).
+4. **Tools & Knowledge**: All agents have access to a shared set of tools (via MCP-SuperAssistant) and the private knowledge base to ensure they are working with the correct information and capabilities.
 
-### Agents
-Autonomous AI entities with specific roles and capabilities:
-```python
-from agents.examples import ResearchAgent
+This structure allows for complex tasks to be broken down and delegated, just like in a human organization, enabling a level of autonomous operation that goes far beyond simple chatbots.
 
-agent = ResearchAgent()
-result = agent.research_topic("quantum computing", depth="comprehensive")
-```
+## Getting Started in 5 Minutes
 
-### Crews
-Multiple agents working together:
-```python
-# Research agent gathers information
-# Writer agent creates content based on research
-# Agents collaborate automatically
-```
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/jeweledtech/agentic-framework.git
+   cd agentic-framework
+   ```
 
-### Tools
-Extend agent capabilities with custom tools:
-- Web search
-- Knowledge base queries
-- File operations
-- API integrations
+2. **Run the setup script:**
+   ```bash
+   ./setup.sh
+   ```
+   This will guide you through creating your `.env` file and downloading the necessary models.
 
-### Knowledge Bases
-Structured information repositories with RAG support for enhanced agent intelligence.
+3. **Launch your digital enterprise:**
+   ```bash
+   docker-compose up -d
+   ```
 
-## 🛠️ Example Usage
+4. **Interact with your AI team:**
+   Open your browser to `http://localhost:3000` and start giving high-level directives to your new Chief AI Agent.
 
-### Research a Topic
-```bash
-curl -X POST http://localhost:8000/research \
-  -H "Content-Type: application/json" \
-  -d '{"topic": "AI in healthcare", "depth": "comprehensive"}'
-```
+## The Path to a Fully Autonomous Enterprise
 
-### Generate Content
-```bash
-curl -X POST http://localhost:8000/write \
-  -H "Content-Type: application/json" \
-  -d '{"topic": "Future of remote work", "tone": "professional", "word_count": 800}'
-```
+The Community Edition provides the foundational engine. For businesses ready to scale, we offer premium solutions:
 
-### Multi-Agent Collaboration
-```bash
-curl -X POST http://localhost:8000/collaborate \
-  -H "Content-Type: application/json" \
-  -d '{"topic": "Blockchain technology", "output_type": "blog_post"}'
-```
+- **JeweledTech Enterprise**: The complete, multi-department digital workforce with all specialized agents, advanced autonomous capabilities (AgenticSeek for web research, ACI.dev for software development), and the full suite of n8n automation workflows for a turnkey solution.
 
-## 📖 Documentation
+- **JeweledTech SaaS Platform**: A fully managed, multi-tenant cloud platform that eliminates the need for you to manage any infrastructure. Get all the power of the Enterprise edition with the convenience of SaaS. Visit [jeweledtech.com](https://jeweledtech.com) for more information!
 
-- [Getting Started Guide](docs/getting-started.md)
-- [Agent Development Guide](knowledge_bases/examples/agent_development_guide.md)
-- [API Reference](http://localhost:8000/docs)
-- [Examples](agents/examples/)
+Learn more about our Enterprise and SaaS offerings at [jeweledtech.com](https://jeweledtech.com)
 
-## 🏗️ Architecture
+## Join the Community & Contribute
 
-```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   FastAPI       │────▶│   Agent         │────▶│    Ollama       │
-│   Server        │     │   Orchestrator  │     │    (LLM)        │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-         │                       │                        │
-         ▼                       ▼                        ▼
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   Custom        │     │   Knowledge     │     │    Tools &      │
-│   Agents        │     │   Base          │     │    Extensions   │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-```
+This is just the beginning. We envision a future where anyone can launch a scalable, efficient, and automated business. We welcome contributions from the community to help us build the future of work.
 
-## 🔧 Creating Custom Agents
+- **Contribute on GitHub**: Check out our [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
+- **Report Issues**: Find a bug? Let us know in the [GitHub Issues](https://github.com/jeweledtech/agentic-framework/issues).
+- **Share Your Creations**: Built a new department or a powerful new agent? Share it with the community!
 
-```python
-from core.agent import BaseAgent, AgentConfig, AgentRole, AgentTools
-
-class DataAnalystAgent(BaseAgent):
-    def __init__(self):
-        config = AgentConfig(
-            id="data_analyst",
-            role=AgentRole(
-                name="Data Analyst",
-                description="Analyzes data and provides insights",
-                goal="Transform raw data into actionable insights",
-                backstory="Expert in statistical analysis and data visualization"
-            ),
-            tools=AgentTools(tool_names=["data_query", "chart_generator"])
-        )
-        super().__init__(config)
-    
-    def analyze_data(self, dataset, analysis_type):
-        # Your analysis logic here
-        pass
-```
-
-## 🏢 Enterprise Features
-
-This open-source framework provides the foundation. For production deployments, JeweledTech offers:
-
-- **20+ Pre-built Specialized Agents**: Sales, Marketing, Engineering, Customer Success, and more
-- **Advanced Orchestration**: Complex multi-agent workflows and decision trees
-- **Production Infrastructure**: Kubernetes deployments, monitoring, and scaling
-- **Integration Suite**: CRM, communication platforms, and enterprise tools
-- **Professional Support**: Training, customization, and dedicated assistance
-
-[Learn more about JeweledTech Enterprise →](https://jeweledtech.com/enterprise)
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
-
-### Ways to Contribute
-- 🐛 Report bugs and issues
-- 💡 Suggest new features
-- 📝 Improve documentation
-- 🔧 Submit pull requests
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🌟 Community
-
-- [GitHub Discussions](https://github.com/jeweledtech/agentic-framework/discussions)
-- [Discord Community](https://discord.gg/jeweledtech)
-- [Blog](https://jeweledtech.com/blog)
-
-## 🙏 Acknowledgments
-
-Built with amazing open-source projects:
-- [CrewAI](https://github.com/joaomdmoura/crewAI)
-- [LangChain](https://github.com/langchain-ai/langchain)
-- [FastAPI](https://github.com/tiangolo/fastapi)
-- [Ollama](https://github.com/ollama/ollama)
-
----
-
-<p align="center">
-  Made with ❤️ by <a href="https://jeweledtech.com">JeweledTech</a>
-</p>
-
-<p align="center">
-  <a href="https://jeweledtech.com/enterprise">
-    <img src="https://img.shields.io/badge/Need%20Enterprise%20Features%3F-Contact%20Us-brightgreen?style=for-the-badge" alt="Enterprise">
-  </a>
-</p>
+Let's build the future of the enterprise, together.
