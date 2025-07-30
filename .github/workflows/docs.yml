@@ -1,13 +1,12 @@
 name: Documentation
 
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - 'docs/**'
-      - 'README.md'
-      - 'CONTRIBUTING.md'
-      - 'knowledge_bases/examples/**'
+  workflow_dispatch:  # Only manual trigger until GitHub Pages is configured
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 
 jobs:
   build-docs:
@@ -23,52 +22,10 @@ jobs:
     
     - name: Install documentation dependencies
       run: |
-        pip install mkdocs mkdocs-material mkdocs-mermaid2-plugin
+        pip install mkdocs mkdocs-material
     
     - name: Build documentation
       run: |
-        # Create mkdocs.yml if it doesn't exist
-        if [ ! -f mkdocs.yml ]; then
-          cat > mkdocs.yml << EOF
-        site_name: JeweledTech Agentic Framework
-        site_url: https://jeweledtech.github.io/agentic-framework/
-        repo_url: https://github.com/jeweledtech/agentic-framework
-        repo_name: jeweledtech/agentic-framework
-        
-        theme:
-          name: material
-          features:
-            - navigation.sections
-            - navigation.expand
-            - navigation.top
-            - search.highlight
-            - content.code.copy
-          palette:
-            - scheme: default
-              primary: indigo
-              accent: indigo
-        
-        nav:
-          - Home: README.md
-          - Getting Started: docs/getting-started.md
-          - Agent Development: knowledge_bases/examples/agent_development_guide.md
-          - Framework Overview: knowledge_bases/examples/framework_overview.md
-          - Contributing: CONTRIBUTING.md
-          - Enterprise: https://jeweledtech.com/enterprise
-        
-        plugins:
-          - search
-          - mermaid2
-        
-        markdown_extensions:
-          - pymdownx.highlight
-          - pymdownx.superfences
-          - pymdownx.tabbed
-          - admonition
-          - codehilite
-        EOF
-        fi
-        
         mkdocs build
     
     - name: Deploy to GitHub Pages
