@@ -12,13 +12,19 @@ from pydantic import BaseModel
 from typing import Dict, List, Any, Optional
 import os
 import sys
+import logging
 from datetime import datetime
+
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Add the current directory to Python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # Import framework components
 from agents.examples import ResearchAgent, WriterAgent
+from agents.executive_chat import ExecutiveChatAgent
 from core.crew import CrewBuilder
 
 # Initialize FastAPI app
@@ -40,6 +46,7 @@ app.add_middleware(
 # Initialize example agents
 research_agent = ResearchAgent()
 writer_agent = WriterAgent()
+executive_chat_agent = ExecutiveChatAgent()
 
 # Request/Response models
 class ResearchRequest(BaseModel):
@@ -55,6 +62,11 @@ class WritingRequest(BaseModel):
 class CollaborativeRequest(BaseModel):
     topic: str
     output_type: str = "blog_post"  # blog_post, documentation, report
+
+class ChatRequest(BaseModel):
+    message: str
+    conversation_id: Optional[str] = None
+    context: Optional[Dict[str, Any]] = None
 
 class AgentResponse(BaseModel):
     agent: str
@@ -92,7 +104,8 @@ def health_check():
     return {
         "status": "healthy",
         "framework": "JeweledTech Agentic Framework",
-        "agents_loaded": 2,
+        "agents_loaded": 3,
+        "features": ["research", "writing", "executive_chat"],
         "timestamp": datetime.now().isoformat()
     }
 
@@ -241,6 +254,54 @@ async def create_crew(agent_ids: List[str], crew_name: str = "Custom Crew"):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@app.post("/chat")
+async def executive_chat(request: ChatRequest):
+    """
+    Executive Chat endpoint - AI-powered conversational interface.
+    
+    This provides intelligent responses for executive-level interactions,
+    business strategy discussions, and decision support.
+    """
+    try:
+        # Process the chat message
+        response = executive_chat_agent.chat(
+            message=request.message,
+            context={
+                "conversation_id": request.conversation_id,
+                **(request.context or {})
+            }
+        )
+        
+        return {
+            "status": "success",
+            "response": response["message"],
+            "metadata": response.get("metadata", {}),
+            "timestamp": response["timestamp"],
+            "conversation_id": request.conversation_id
+        }
+    except Exception as e:
+        logger.error(f"Executive chat error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/chat/analyze")
+async def analyze_business_request(request: Dict[str, Any]):
+    """
+    Analyze a business request and provide structured insights.
+    """
+    try:
+        analysis = executive_chat_agent.analyze_business_request(
+            request.get("request", "")
+        )
+        return analysis
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/chat/reset")
+async def reset_chat():
+    """Reset the conversation history."""
+    executive_chat_agent.reset_conversation()
+    return {"status": "success", "message": "Conversation history reset"}
+
 # Run the server
 if __name__ == "__main__":
     import uvicorn
@@ -253,6 +314,7 @@ if __name__ == "__main__":
     print("\nExample agents loaded:")
     print("  ✓ Research Agent - For researching topics")
     print("  ✓ Writer Agent - For content creation")
+    print("  ✓ Executive Chat - AI-powered conversational interface")
     print("\n💡 Tip: Try the /collaborate endpoint to see agents working together!")
     print("\n🏢 Need production-ready agents? Visit https://jeweledtech.com/enterprise")
     print("="*60 + "\n")
