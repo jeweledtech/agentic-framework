@@ -1,0 +1,36 @@
+name: Documentation
+
+on:
+  workflow_dispatch:  # Only manual trigger until GitHub Pages is configured
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build-docs:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install documentation dependencies
+      run: |
+        pip install mkdocs mkdocs-material
+    
+    - name: Build documentation
+      run: |
+        mkdocs build
+    
+    - name: Deploy to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v3
+      if: github.ref == 'refs/heads/main'
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./site

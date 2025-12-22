@@ -1,0 +1,59 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Build Docker images
+      run: |
+        docker build -f Dockerfile -t jeweledtech/agentic-framework:${{ github.ref_name }} .
+        docker build -f Dockerfile -t jeweledtech/agentic-framework:latest .
+    
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        body: |
+          ## What's Changed
+          
+          ### Features
+          - Multi-agent orchestration with CrewAI
+          - Knowledge base integration
+          - Tool extensibility
+          - Docker-based deployment
+          
+          ### Installation
+          ```bash
+          docker pull jeweledtech/agentic-framework:${{ github.ref_name }}
+          ```
+          
+          ### Enterprise Features
+          For production-ready deployments with pre-built agents, advanced orchestration, and professional support, visit [JeweledTech Enterprise](https://jeweledtech.com/enterprise).
+        draft: false
+        prerelease: false
+    
+    - name: Build and publish Docker image
+      env:
+        DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      run: |
+        echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
+        docker push jeweledtech/agentic-framework:${{ github.ref_name }}
+        docker push jeweledtech/agentic-framework:latest

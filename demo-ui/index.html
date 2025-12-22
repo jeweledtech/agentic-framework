@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JeweledTech Agentic Framework - Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: #2c3e50;
+            color: white;
+            padding: 2rem 0;
+            margin-bottom: 2rem;
+        }
+        
+        h1 {
+            text-align: center;
+            font-size: 2.5rem;
+        }
+        
+        .subtitle {
+            text-align: center;
+            opacity: 0.8;
+            margin-top: 0.5rem;
+        }
+        
+        .demo-section {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        .tab {
+            padding: 0.75rem 1.5rem;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            position: relative;
+            transition: all 0.3s;
+        }
+        
+        .tab.active {
+            color: #3498db;
+        }
+        
+        .tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: #3498db;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .input-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+        
+        input, textarea, select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        button {
+            background: #3498db;
+            color: white;
+            padding: 0.75rem 2rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        button:hover {
+            background: #2980b9;
+        }
+        
+        button:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+        }
+        
+        .result-box {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 4px;
+            margin-top: 2rem;
+            white-space: pre-wrap;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 0.9rem;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #7f8c8d;
+        }
+        
+        .enterprise-banner {
+            background: #e74c3c;
+            color: white;
+            padding: 1rem;
+            text-align: center;
+            border-radius: 4px;
+            margin-bottom: 2rem;
+        }
+        
+        .enterprise-banner a {
+            color: white;
+            font-weight: bold;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+        
+        .status-indicator.online {
+            background: #27ae60;
+        }
+        
+        .status-indicator.offline {
+            background: #e74c3c;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>🤖 JeweledTech Agentic Framework</h1>
+            <p class="subtitle">Open-Source Multi-Agent AI System Demo</p>
+        </div>
+    </header>
+    
+    <div class="container">
+        <div class="enterprise-banner">
+            Need production-ready agents for your business? 
+            <a href="https://jeweledtech.com/enterprise">Explore JeweledTech Enterprise →</a>
+        </div>
+        
+        <div class="demo-section">
+            <h2>API Status: <span class="status-indicator" id="status"></span><span id="status-text">Checking...</span></h2>
+        </div>
+        
+        <div class="demo-section">
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('research')">Research Agent</button>
+                <button class="tab" onclick="switchTab('writer')">Writer Agent</button>
+                <button class="tab" onclick="switchTab('collaborate')">Multi-Agent Collaboration</button>
+            </div>
+            
+            <!-- Research Tab -->
+            <div id="research-tab" class="tab-content active">
+                <h3>Research Any Topic</h3>
+                <p>Use our Research Agent to gather comprehensive information on any subject.</p>
+                
+                <div class="input-group">
+                    <label for="research-topic">Topic to Research:</label>
+                    <input type="text" id="research-topic" placeholder="e.g., quantum computing, climate change, AI ethics">
+                </div>
+                
+                <div class="input-group">
+                    <label for="research-depth">Depth of Research:</label>
+                    <select id="research-depth">
+                        <option value="basic">Basic</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="comprehensive">Comprehensive</option>
+                    </select>
+                </div>
+                
+                <button onclick="performResearch()">Start Research</button>
+                
+                <div id="research-result" class="result-box" style="display:none;"></div>
+            </div>
+            
+            <!-- Writer Tab -->
+            <div id="writer-tab" class="tab-content">
+                <h3>Generate Written Content</h3>
+                <p>Let our Writer Agent create professional content on any topic.</p>
+                
+                <div class="input-group">
+                    <label for="write-topic">Topic:</label>
+                    <input type="text" id="write-topic" placeholder="e.g., The future of remote work">
+                </div>
+                
+                <div class="input-group">
+                    <label for="write-tone">Tone:</label>
+                    <select id="write-tone">
+                        <option value="professional">Professional</option>
+                        <option value="casual">Casual</option>
+                        <option value="technical">Technical</option>
+                        <option value="creative">Creative</option>
+                    </select>
+                </div>
+                
+                <div class="input-group">
+                    <label for="word-count">Word Count:</label>
+                    <input type="number" id="word-count" value="800" min="100" max="2000">
+                </div>
+                
+                <button onclick="generateContent()">Generate Content</button>
+                
+                <div id="write-result" class="result-box" style="display:none;"></div>
+            </div>
+            
+            <!-- Collaborate Tab -->
+            <div id="collaborate-tab" class="tab-content">
+                <h3>Multi-Agent Collaboration</h3>
+                <p>Watch multiple agents work together to research and create content.</p>
+                
+                <div class="input-group">
+                    <label for="collab-topic">Topic:</label>
+                    <input type="text" id="collab-topic" placeholder="e.g., Blockchain in healthcare">
+                </div>
+                
+                <div class="input-group">
+                    <label for="output-type">Output Type:</label>
+                    <select id="output-type">
+                        <option value="blog_post">Blog Post</option>
+                        <option value="documentation">Technical Documentation</option>
+                        <option value="report">Executive Report</option>
+                    </select>
+                </div>
+                
+                <button onclick="collaborate()">Start Collaboration</button>
+                
+                <div id="collab-result" class="result-box" style="display:none;"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const API_URL = 'http://localhost:8000';
+        
+        // Check API status on load
+        window.onload = async function() {
+            await checkAPIStatus();
+        };
+        
+        async function checkAPIStatus() {
+            try {
+                const response = await fetch(`${API_URL}/health`);
+                const data = await response.json();
+                
+                document.getElementById('status').classList.add('online');
+                document.getElementById('status-text').textContent = 'Online';
+            } catch (error) {
+                document.getElementById('status').classList.add('offline');
+                document.getElementById('status-text').textContent = 'Offline - Make sure the API server is running';
+            }
+        }
+        
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Remove active class from all tab buttons
+            document.querySelectorAll('.tab').forEach(button => {
+                button.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+            
+            // Add active class to clicked button
+            event.target.classList.add('active');
+        }
+        
+        async function performResearch() {
+            const topic = document.getElementById('research-topic').value;
+            const depth = document.getElementById('research-depth').value;
+            
+            if (!topic) {
+                alert('Please enter a topic to research');
+                return;
+            }
+            
+            const resultDiv = document.getElementById('research-result');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '<div class="loading">🔍 Researching... This may take a moment...</div>';
+            
+            try {
+                const response = await fetch(`${API_URL}/research`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ topic, depth })
+                });
+                
+                const data = await response.json();
+                resultDiv.innerHTML = formatResult(data);
+            } catch (error) {
+                resultDiv.innerHTML = `Error: ${error.message}. Make sure the API server is running.`;
+            }
+        }
+        
+        async function generateContent() {
+            const topic = document.getElementById('write-topic').value;
+            const tone = document.getElementById('write-tone').value;
+            const wordCount = parseInt(document.getElementById('word-count').value);
+            
+            if (!topic) {
+                alert('Please enter a topic');
+                return;
+            }
+            
+            const resultDiv = document.getElementById('write-result');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '<div class="loading">✍️ Writing... This may take a moment...</div>';
+            
+            try {
+                const response = await fetch(`${API_URL}/write`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        topic, 
+                        tone, 
+                        word_count: wordCount 
+                    })
+                });
+                
+                const data = await response.json();
+                resultDiv.innerHTML = formatResult(data);
+            } catch (error) {
+                resultDiv.innerHTML = `Error: ${error.message}. Make sure the API server is running.`;
+            }
+        }
+        
+        async function collaborate() {
+            const topic = document.getElementById('collab-topic').value;
+            const outputType = document.getElementById('output-type').value;
+            
+            if (!topic) {
+                alert('Please enter a topic');
+                return;
+            }
+            
+            const resultDiv = document.getElementById('collab-result');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '<div class="loading">🤝 Agents collaborating... This may take a moment...</div>';
+            
+            try {
+                const response = await fetch(`${API_URL}/collaborate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        topic, 
+                        output_type: outputType 
+                    })
+                });
+                
+                const data = await response.json();
+                resultDiv.innerHTML = formatCollaborationResult(data);
+            } catch (error) {
+                resultDiv.innerHTML = `Error: ${error.message}. Make sure the API server is running.`;
+            }
+        }
+        
+        function formatResult(data) {
+            if (data.result && typeof data.result === 'object') {
+                return JSON.stringify(data.result, null, 2);
+            }
+            return data.result || JSON.stringify(data, null, 2);
+        }
+        
+        function formatCollaborationResult(data) {
+            let output = `🤝 Collaboration Complete!\\n\\n`;
+            output += `Topic: ${data.topic}\\n`;
+            output += `Output Type: ${data.output_type}\\n`;
+            output += `Agents Involved: ${data.agents_involved.join(', ')}\\n\\n`;
+            
+            output += `--- Research Phase ---\\n`;
+            output += JSON.stringify(data.research_phase, null, 2) + '\\n\\n';
+            
+            output += `--- Writing Phase ---\\n`;
+            output += JSON.stringify(data.writing_phase, null, 2) + '\\n\\n';
+            
+            if (data.enterprise_note) {
+                output += `\\n💡 ${data.enterprise_note}`;
+            }
+            
+            return output;
+        }
+    </script>
+</body>
+</html>

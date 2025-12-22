@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    container_name: agentic-framework-api
+    ports:
+      - "8000:8000"
+    environment:
+      - OLLAMA_HOST=ollama:11434
+      - MODEL_PATH=llama3.2:3b
+      - USE_MOCK_KB=false
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./knowledge_bases:/app/knowledge_bases
+      - ./agents:/app/agents
+    depends_on:
+      - ollama
+    networks:
+      - agentic-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: agentic-framework-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - agentic-network
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 4G
+
+  # Optional: Demo UI (uncomment to enable)
+  # demo-ui:
+  #   build: ./demo-ui
+  #   container_name: agentic-framework-ui
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     - REACT_APP_API_URL=http://localhost:8000
+  #   depends_on:
+  #     - api
+  #   networks:
+  #     - agentic-network
+
+volumes:
+  ollama-data:
+    driver: local
+
+networks:
+  agentic-network:
+    driver: bridge

@@ -1,0 +1,35 @@
+site_name: JeweledTech Agentic Framework
+site_url: https://jeweledtech.github.io/agentic-framework/
+repo_url: https://github.com/jeweledtech/agentic-framework
+repo_name: jeweledtech/agentic-framework
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.highlight
+    - content.code.copy
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+
+nav:
+  - Home: README.md
+  - Getting Started: docs/getting-started.md
+  - Agent Development: knowledge_bases/examples/agent_development_guide.md
+  - Framework Overview: knowledge_bases/examples/framework_overview.md
+  - Contributing: CONTRIBUTING.md
+  - Enterprise: https://jeweledtech.com/enterprise
+
+plugins:
+  - search
+
+markdown_extensions:
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.tabbed
+  - admonition
+  - codehilite

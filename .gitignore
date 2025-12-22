@@ -1,0 +1,217 @@
+# =============================================================================
+# JeweledTech Agentic Framework - Comprehensive .gitignore
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# AI/ML Models (CRITICAL - these are multi-GB files)
+# -----------------------------------------------------------------------------
+*.gguf
+*.ggml
+*.bin
+*.safetensors
+*.pth
+*.pt
+*.onnx
+*.pb
+*.h5
+*.hdf5
+*.tflite
+*.mlmodel
+*.mar
+*.model
+*.weights
+*.ckpt
+*.pkl
+models/
+model_cache/
+huggingface/
+.cache/huggingface/
+ollama/
+.ollama/
+
+# -----------------------------------------------------------------------------
+# Python Virtual Environments (6+ GB typically)
+# -----------------------------------------------------------------------------
+venv/
+.venv/
+env/
+.env/
+ENV/
+virtualenv/
+.virtualenv/
+.Python
+pyvenv.cfg
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Python compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.pyo
+*.pyd
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# -----------------------------------------------------------------------------
+# Node.js (often 500MB-2GB)
+# -----------------------------------------------------------------------------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+yarn.lock
+package-lock.json
+.npm/
+.yarn/
+.pnp.*
+
+# -----------------------------------------------------------------------------
+# Vector Databases & Knowledge Stores
+# -----------------------------------------------------------------------------
+vectorstore/
+chroma_db/
+.chroma/
+chromadb/
+faiss_index/
+*.faiss
+qdrant_storage/
+milvus_data/
+weaviate_data/
+pinecone_index/
+lancedb/
+embeddings_cache/
+
+# -----------------------------------------------------------------------------
+# Private GPT / RAG Systems
+# -----------------------------------------------------------------------------
+private-gpt/
+private-gpt-archived/
+local_data/
+tiktoken_cache/
+sentence_transformers/
+
+# -----------------------------------------------------------------------------
+# Credentials & Secrets (SECURITY CRITICAL)
+# -----------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+credentials/
+secrets/
+*kubeconfig*.yaml
+kubeconfig.yaml
+service-account*.json
+*_credentials.json
+.secrets/
+vault/
+
+# -----------------------------------------------------------------------------
+# IDE & Editor
+# -----------------------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-*
+.project
+.pydevproject
+.spyderproject
+.spyproject
+*.code-workspace
+
+# -----------------------------------------------------------------------------
+# OS Generated
+# -----------------------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*:Zone.Identifier
+desktop.ini
+
+# -----------------------------------------------------------------------------
+# Logs & Temporary Files
+# -----------------------------------------------------------------------------
+*.log
+logs/
+*.tmp
+*.temp
+*.bak
+*.swp
+.cache/
+.temp/
+tmp/
+temp/
+
+# -----------------------------------------------------------------------------
+# Docker & Containers
+# -----------------------------------------------------------------------------
+*.tar
+docker-data/
+
+# -----------------------------------------------------------------------------
+# Database Files
+# -----------------------------------------------------------------------------
+*.db
+*.sqlite
+*.sqlite3
+*.sql
+data/
+db_data/
+
+# -----------------------------------------------------------------------------
+# Project-Specific Exclusions
+# -----------------------------------------------------------------------------
+# Large/generated files
+*.zip
+*.tar.gz
+*.7z
+*.rar
+archived_versions/
+mvp_validation_results.json
+**/sample_*.csv
+
+# Build outputs
+agentic-ui/build/
+agentic-ui/dist/
+demo-ui/build/
+demo-ui/dist/
+
+# n8n data (workflows are OK, but not credentials/data)
+n8n-mcp/node_modules/
+n8n_data/
+
+# Mysterious large files that appeared
+ziIQmS5y
+
+# -----------------------------------------------------------------------------
+# Git LFS (if using for large files)
+# -----------------------------------------------------------------------------
+# Uncomment if you decide to use Git LFS for specific large files
+# *.gguf filter=lfs diff=lfs merge=lfs -text
