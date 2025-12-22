@@ -60,6 +60,14 @@ This structure allows for complex tasks to be broken down and delegated, just li
 4. **Interact with your AI team:**
    Open your browser to `http://localhost:3000` and start giving high-level directives to your new Chief AI Agent.
 
+## Forked the Repository?
+
+If you've forked this repository and want a complete guide on setting up your environment, implementing custom agents, and building out your 58-agent workforce:
+
+**[Read the Complete Fork Setup Guide](FORK_SETUP_GUIDE.md)** - Covers everything from initial setup to production deployment.
+
+**[Agent Templates](AGENT_TEMPLATES.md)** - Ready-to-use templates for all 6 departments.
+
 ## The Path to a Fully Autonomous Enterprise
 
 The Community Edition provides the foundational engine. For businesses ready to scale, we offer premium solutions:
