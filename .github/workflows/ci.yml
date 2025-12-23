@@ -93,13 +93,26 @@ jobs:
           agentic-framework:test
 
         # Wait for startup
-        sleep 15
+        echo "Waiting for container to start..."
+        sleep 20
+
+        # Show container status
+        echo "Container status:"
+        docker ps -a | grep test-api || true
+
+        # Show logs regardless of status
+        echo "Container logs:"
+        docker logs test-api 2>&1 || true
 
         # Check if container is still running
-        docker ps | grep test-api
+        if ! docker ps | grep -q test-api; then
+          echo "Container is not running!"
+          exit 1
+        fi
 
         # Check health endpoint
-        curl -f http://localhost:8000/health || (docker logs test-api && exit 1)
+        echo "Testing health endpoint..."
+        curl -f http://localhost:8000/health || exit 1
 
         # Cleanup
         docker stop test-api
