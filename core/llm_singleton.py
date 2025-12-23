@@ -194,10 +194,13 @@ class EnhancedLLMSingleton:
 
 class SimpleMockLLM(LLM):
     """Simple mock LLM for development and testing"""
-    
+
+    # Declare model_name as a class attribute for Pydantic compatibility
+    model_name: str = "mock_model"
+
     def __init__(self, model_name: str = "mock_model", **kwargs):
-        self.model_name = model_name
-        super().__init__(**kwargs)
+        # For Pydantic v2 compatibility, pass model_name to super().__init__
+        super().__init__(model_name=model_name, **kwargs)
         print(f"Using SIMPLE MOCK LLM ({model_name}) for CrewAI (no actual model or LangChain)")
     
     def _call(self, prompt: str, **kwargs) -> str:
