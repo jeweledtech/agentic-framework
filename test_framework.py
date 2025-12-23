@@ -1,91 +1,119 @@
 #!/usr/bin/env python3
 """
 Quick test script to validate the JeweledTech Agentic Framework
+Compatible with pytest for CI/CD pipelines
 """
 
 import sys
 import os
+import pytest
 
 # Add current directory to path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-def test_imports():
+# Set mock mode for CI testing
+os.environ['USE_MOCK_KB'] = 'true'
+
+
+def test_core_imports():
     """Test that all core imports work"""
-    print("Testing imports...")
-    try:
-        from core.agent import BaseAgent, AgentConfig, AgentRole, AgentTools
-        print("✓ Core agent imports successful")
-        
-        from agents.examples import ResearchAgent, WriterAgent
-        print("✓ Example agent imports successful")
-        
-        from core.crew import CrewBuilder
-        print("✓ Crew imports successful")
-        
-        from knowledge_bases.kb_interface import KnowledgeBaseInterface
-        print("✓ Knowledge base imports successful")
-        
-        return True
-    except Exception as e:
-        print(f"✗ Import error: {e}")
-        return False
+    from core.agent import BaseAgent, AgentConfig, AgentRole, AgentTools
 
-def test_agent_creation():
-    """Test creating example agents"""
-    print("\nTesting agent creation...")
-    try:
-        from agents.examples import ResearchAgent, WriterAgent
-        
-        research_agent = ResearchAgent()
-        print("✓ Research agent created successfully")
-        
-        writer_agent = WriterAgent()
-        print("✓ Writer agent created successfully")
-        
-        return True
-    except Exception as e:
-        print(f"✗ Agent creation error: {e}")
-        return False
+    assert BaseAgent is not None
+    assert AgentConfig is not None
+    assert AgentRole is not None
+    assert AgentTools is not None
 
-def test_knowledge_base():
-    """Test knowledge base access"""
-    print("\nTesting knowledge base...")
-    try:
-        from knowledge_bases.kb_interface import get_kb_interface
-        
-        kb = get_kb_interface("research")
-        categories = kb.list_categories()
-        print(f"✓ Knowledge base accessible with {len(categories)} categories")
-        
-        return True
-    except Exception as e:
-        print(f"✗ Knowledge base error: {e}")
-        return False
 
+def test_example_agent_imports():
+    """Test that example agent imports work"""
+    from agents.examples import ResearchAgent, WriterAgent
+
+    assert ResearchAgent is not None
+    assert WriterAgent is not None
+
+
+def test_crew_imports():
+    """Test that crew imports work"""
+    from core.crew import CrewBuilder
+
+    assert CrewBuilder is not None
+
+
+def test_knowledge_base_imports():
+    """Test that knowledge base imports work"""
+    from knowledge_bases.kb_interface import KnowledgeBaseInterface
+
+    assert KnowledgeBaseInterface is not None
+
+
+def test_agent_config_creation():
+    """Test creating an agent configuration"""
+    from core.agent import AgentConfig, AgentRole, AgentTools
+
+    role = AgentRole(
+        name="Test Agent",
+        description="A test agent",
+        goal="Test the framework",
+        backstory="Created for testing"
+    )
+
+    tools = AgentTools(tool_names=["web_search"])
+
+    config = AgentConfig(
+        id="test_agent",
+        role=role,
+        tools=tools,
+        department="research"
+    )
+
+    assert config.id == "test_agent"
+    assert config.role.name == "Test Agent"
+    assert "web_search" in config.tools.tool_names
+
+
+def test_knowledge_base_interface():
+    """Test knowledge base interface in mock mode"""
+    from knowledge_bases.kb_interface import get_kb_interface
+
+    kb = get_kb_interface("research")
+    assert kb is not None
+
+    categories = kb.list_categories()
+    assert isinstance(categories, list)
+
+
+def test_research_agent_creation():
+    """Test creating a research agent"""
+    from agents.examples import ResearchAgent
+
+    # This should work with mock LLM
+    agent = ResearchAgent()
+    assert agent is not None
+    assert agent.config.id == "research_agent"
+
+
+def test_writer_agent_creation():
+    """Test creating a writer agent"""
+    from agents.examples import WriterAgent
+
+    # This should work with mock LLM
+    agent = WriterAgent()
+    assert agent is not None
+
+
+# Allow running as standalone script
 def main():
-    """Run all tests"""
-    print("="*60)
+    """Run tests with pytest when executed directly"""
+    print("=" * 60)
     print("JeweledTech Agentic Framework - Validation Test")
-    print("="*60)
-    
-    tests = [
-        test_imports(),
-        test_agent_creation(),
-        test_knowledge_base()
-    ]
-    
-    passed = sum(tests)
-    total = len(tests)
-    
-    print("\n" + "="*60)
-    print(f"Tests passed: {passed}/{total}")
-    
-    if passed == total:
-        print("✅ All tests passed! Framework is ready.")
-        return 0
-    else:
-        print("❌ Some tests failed. Please check the errors above.")
-        return 1
+    print("=" * 60)
+
+    # Run pytest programmatically
+    exit_code = pytest.main([__file__, "-v", "--tb=short"])
+
+    return exit_code
+
 
 if __name__ == "__main__":
     sys.exit(main())

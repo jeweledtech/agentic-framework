@@ -12,87 +12,110 @@ jobs:
     strategy:
       matrix:
         python-version: ['3.11', '3.12']
-    
+
     steps:
-    - uses: actions/checkout@v3
-    
+    - uses: actions/checkout@v4
+
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
-    
+
     - name: Cache pip packages
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/.cache/pip
         key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
         restore-keys: |
           ${{ runner.os }}-pip-
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install pytest pytest-cov pylint black isort
-    
+        pip install pytest pytest-cov
+
+    - name: Run tests
+      env:
+        USE_MOCK_KB: "true"
+      run: |
+        pytest test_framework.py -v --tb=short
+
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install linting tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install pylint black isort
+
     - name: Lint with pylint
       run: |
-        pylint agents/ core/ tools/ --disable=C0111,R0903,W0223 || true
-    
+        pylint agents/ core/ tools/ --disable=C0111,R0903,W0223,C0114,C0115,C0116,R0801,W0612,W0611,E0401,C0301 --exit-zero
+
     - name: Format check with black
       run: |
-        black --check agents/ core/ tools/ || true
-    
+        black --check agents/ core/ tools/ --line-length 120 || true
+
     - name: Sort imports with isort
       run: |
         isort --check-only agents/ core/ tools/ || true
-    
-    - name: Run tests
-      run: |
-        pytest test_framework.py -v --cov=core --cov=agents --cov-report=xml
-    
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
-      with:
-        file: ./coverage.xml
-        flags: unittests
-        name: codecov-umbrella
-        fail_ci_if_error: false
 
   docker:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - uses: actions/checkout@v3
-    
+    - uses: actions/checkout@v4
+
     - name: Build Docker image
       run: |
         docker build -f Dockerfile -t agentic-framework:test .
-    
-    - name: Test Docker Compose
+
+    - name: Validate Docker Compose config
       run: |
-        docker-compose config
-        docker-compose up -d
-        sleep 10
-        curl -f http://localhost:8000/health || exit 1
-        docker-compose down
+        docker compose config
+
+    - name: Test Docker image runs
+      run: |
+        # Run with mock mode enabled so it doesn't need Ollama
+        docker run -d --name test-api \
+          -e USE_MOCK_KB=true \
+          -e OLLAMA_HOST=http://localhost:11434 \
+          -p 8000:8000 \
+          agentic-framework:test
+
+        # Wait for startup
+        sleep 15
+
+        # Check if container is still running
+        docker ps | grep test-api
+
+        # Check health endpoint
+        curl -f http://localhost:8000/health || (docker logs test-api && exit 1)
+
+        # Cleanup
+        docker stop test-api
+        docker rm test-api
 
   security:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - uses: actions/checkout@v3
-    
+    - uses: actions/checkout@v4
+
     - name: Run Trivy vulnerability scanner
       uses: aquasecurity/trivy-action@master
       with:
         scan-type: 'fs'
         scan-ref: '.'
-        format: 'sarif'
-        output: 'trivy-results.sarif'
-    
-    - name: Upload Trivy scan results
-      uses: github/codeql-action/upload-sarif@v2
-      if: always()
-      with:
-        sarif_file: 'trivy-results.sarif'
+        format: 'table'
+        exit-code: '0'
+        severity: 'CRITICAL,HIGH'
