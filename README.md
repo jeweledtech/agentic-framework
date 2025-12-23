@@ -1,4 +1,5 @@
-# JeweledTech Agentic OS: Your Business-in-a-Box
+# JeweledTech-Desktop
+An Agentic OS: Your Business-in-a-Box
 
 Build, automate, and scale your entire company with a digital workforce. JeweledTech's Agentic OS is an open-source framework for scaffolding a complete enterprise, from sales and marketing to product development and back-office operations, and a complete security as a service department using a hierarchy of collaborative AI agents.
 
