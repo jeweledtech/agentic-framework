@@ -1,0 +1,286 @@
+{
+  "name": "Sales - HubSpot CRM Integration",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "sales-crm",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook_sales",
+      "name": "Sales CRM Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "webhookId": "sales-crm"
+    },
+    {
+      "parameters": {
+        "url": "https://api.jeweledtech.com/chat",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "message",
+              "value": "={{ $json.body.message }}"
+            },
+            {
+              "name": "channel",
+              "value": "Sales CRM"
+            }
+          ]
+        }
+      },
+      "id": "call_sales_agent",
+      "name": "Call Sales Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Parse agent response for CRM actions\nconst agentResponse = $input.all()[0].json.text;\nconst actions = [];\n\n// Check for lead/contact creation\nif (agentResponse.toLowerCase().includes('create contact') || \n    agentResponse.toLowerCase().includes('new lead')) {\n  actions.push({\n    type: 'create_contact',\n    data: extractContactData(agentResponse)\n  });\n}\n\n// Check for deal creation\nif (agentResponse.toLowerCase().includes('create deal') || \n    agentResponse.toLowerCase().includes('new opportunity')) {\n  actions.push({\n    type: 'create_deal',\n    data: extractDealData(agentResponse)\n  });\n}\n\n// Check for email sending\nif (agentResponse.toLowerCase().includes('send email') || \n    agentResponse.toLowerCase().includes('email campaign')) {\n  actions.push({\n    type: 'send_email',\n    data: extractEmailData(agentResponse)\n  });\n}\n\nreturn actions.length > 0 ? actions : [{ json: { type: 'none', response: agentResponse } }];\n\nfunction extractContactData(text) {\n  // Extract contact info from agent response\n  return {\n    email: 'lead@example.com', // Would parse from actual response\n    firstname: 'New',\n    lastname: 'Lead',\n    company: 'Example Corp'\n  };\n}\n\nfunction extractDealData(text) {\n  return {\n    dealname: 'New Opportunity',\n    amount: 10000,\n    pipeline: 'default',\n    dealstage: 'appointmentscheduled'\n  };\n}\n\nfunction extractEmailData(text) {\n  return {\n    to: 'lead@example.com',\n    subject: 'Welcome to our services',\n    body: 'Thank you for your interest...'\n  };\n}"
+      },
+      "id": "parse_actions",
+      "name": "Parse CRM Actions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        650,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.type }}",
+              "operation": "equal",
+              "value2": "create_contact"
+            }
+          ]
+        }
+      },
+      "id": "if_create_contact",
+      "name": "If Create Contact",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        850,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "apiKey",
+        "resource": "contact",
+        "operation": "create",
+        "properties": {
+          "property": [
+            {
+              "name": "email",
+              "value": "={{ $json.data.email }}"
+            },
+            {
+              "name": "firstname",
+              "value": "={{ $json.data.firstname }}"
+            },
+            {
+              "name": "lastname",
+              "value": "={{ $json.data.lastname }}"
+            },
+            {
+              "name": "company",
+              "value": "={{ $json.data.company }}"
+            }
+          ]
+        }
+      },
+      "id": "hubspot_create",
+      "name": "Create HubSpot Contact",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2,
+      "position": [
+        1050,
+        150
+      ],
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "1",
+          "name": "HubSpot Private App"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.type }}",
+              "operation": "equal",
+              "value2": "send_email"
+            }
+          ]
+        }
+      },
+      "id": "if_send_email",
+      "name": "If Send Email",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        850,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $json.data.to }}",
+        "subject": "={{ $json.data.subject }}",
+        "messageType": "text",
+        "message": "={{ $json.data.body }}"
+      },
+      "id": "gmail_send",
+      "name": "Send Gmail",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1050,
+        350
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "2",
+          "name": "Gmail OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Collect results\nconst results = [];\nconst inputs = $input.all();\n\nfor (const item of inputs) {\n  if (item.json.id) {\n    // HubSpot contact created\n    results.push({\n      success: true,\n      type: 'contact_created',\n      hubspot_id: item.json.id,\n      message: `Contact created in HubSpot with ID: ${item.json.id}`\n    });\n  } else if (item.json.messageId) {\n    // Email sent\n    results.push({\n      success: true,\n      type: 'email_sent',\n      message_id: item.json.messageId,\n      message: 'Email sent successfully via Gmail'\n    });\n  } else {\n    results.push({\n      success: true,\n      type: 'response_only',\n      message: item.json.response || 'Agent provided response without external actions'\n    });\n  }\n}\n\nreturn [{ json: { results: results, original_request: $node[\"Sales CRM Webhook\"].json.body } }];"
+      },
+      "id": "format_results",
+      "name": "Format Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1250,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Sales CRM Webhook": {
+      "main": [
+        [
+          {
+            "node": "Call Sales Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Sales Agent": {
+      "main": [
+        [
+          {
+            "node": "Parse CRM Actions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse CRM Actions": {
+      "main": [
+        [
+          {
+            "node": "If Create Contact",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Create Contact": {
+      "main": [
+        [
+          {
+            "node": "Create HubSpot Contact",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Send Email": {
+      "main": [
+        [
+          {
+            "node": "Send Gmail",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create HubSpot Contact": {
+      "main": [
+        [
+          {
+            "node": "Format Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Gmail": {
+      "main": [
+        [
+          {
+            "node": "Format Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

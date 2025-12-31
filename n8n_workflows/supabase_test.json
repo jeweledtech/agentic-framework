@@ -1,0 +1,77 @@
+{
+  "name": "Supabase Fields Test",
+  "nodes": [
+    {
+      "parameters": {
+        "resource": "database",
+        "operation": "create",
+        "table": "enhanced_assessments",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "company_name",
+              "fieldValue": "={{ $json.companyName }}"
+            },
+            {
+              "fieldName": "vertical", 
+              "fieldValue": "={{ $json.industry }}"
+            },
+            {
+              "fieldName": "company_size",
+              "fieldValue": "={{ $json.companySize }}"
+            },
+            {
+              "fieldName": "company_description",
+              "fieldValue": "={{ $json.companyDescription }}"
+            },
+            {
+              "fieldName": "strategic_priorities",
+              "fieldValue": "={{ $json.strategicPriorities }}"
+            },
+            {
+              "fieldName": "operational_bottlenecks",
+              "fieldValue": "={{ $json.operationalBottlenecks }}"
+            },
+            {
+              "fieldName": "departments_of_interest",
+              "fieldValue": "={{ $json.departmentsOfInterest }}"
+            },
+            {
+              "fieldName": "current_tools",
+              "fieldValue": "={{ {crm: $json.crmPlatform, communication: $json.communicationPlatforms, project_management: $json.projectManagement, other: $json.otherPlatforms} }}"
+            },
+            {
+              "fieldName": "ai_interests",
+              "fieldValue": "={{ $json.aiCapabilities }}"
+            },
+            {
+              "fieldName": "automation_goals",
+              "fieldValue": "={{ $json.automationTask }}"
+            },
+            {
+              "fieldName": "contact_info",
+              "fieldValue": "={{ {name: $json.contactName, email: $json.contactEmail, phone: $json.contactPhone} }}"
+            },
+            {
+              "fieldName": "processing_status",
+              "fieldValue": "pending"
+            },
+            {
+              "fieldName": "workflow_id",
+              "fieldValue": "={{ $json.assessmentId }}"
+            },
+            {
+              "fieldName": "submission_source",
+              "fieldValue": "n8n_workflow"
+            }
+          ]
+        }
+      },
+      "id": "save_to_supabase",
+      "name": "Save to Supabase",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [650, 300]
+    }
+  ]
+}

@@ -1,0 +1,116 @@
+{
+  "parameters": {
+    "resource": "row",
+    "operation": "create",
+    "tableId": "enhanced_assessments",
+    "dataToSend": "defineBelow",
+    "fieldsUi": {
+      "fieldValues": [
+        {
+          "fieldId": "company_name",
+          "fieldName": "company_name",
+          "fieldValue": "={{ $json.companyName }}"
+        },
+        {
+          "fieldId": "vertical",
+          "fieldName": "vertical",
+          "fieldValue": "={{ $json.industry }}"
+        },
+        {
+          "fieldId": "company_size",
+          "fieldName": "company_size",
+          "fieldValue": "={{ $json.companySize }}"
+        },
+        {
+          "fieldId": "company_description",
+          "fieldName": "company_description",
+          "fieldValue": "={{ $json.companyDescription }}"
+        },
+        {
+          "fieldId": "strategic_priorities",
+          "fieldName": "strategic_priorities",
+          "fieldValue": "={{ $json.strategicPriorities }}"
+        },
+        {
+          "fieldId": "operational_bottlenecks",
+          "fieldName": "operational_bottlenecks",
+          "fieldValue": "={{ $json.operationalBottlenecks }}"
+        },
+        {
+          "fieldId": "departments_of_interest",
+          "fieldName": "departments_of_interest",
+          "fieldValue": "={{ $json.departmentsOfInterest }}"
+        },
+        {
+          "fieldId": "crm_platforms",
+          "fieldName": "crm_platforms",
+          "fieldValue": "={{ [$json.crmPlatform] }}"
+        },
+        {
+          "fieldId": "communication_platforms",
+          "fieldName": "communication_platforms",
+          "fieldValue": "={{ $json.communicationPlatforms }}"
+        },
+        {
+          "fieldId": "project_management_platforms",
+          "fieldName": "project_management_platforms",
+          "fieldValue": "={{ [$json.projectManagement] }}"
+        },
+        {
+          "fieldId": "knowledge_base_status",
+          "fieldName": "knowledge_base_status",
+          "fieldValue": "={{ $json.knowledgeBaseStatus }}"
+        },
+        {
+          "fieldId": "api_experience",
+          "fieldName": "api_experience",
+          "fieldValue": "={{ $json.apiExperience }}"
+        },
+        {
+          "fieldId": "ai_capabilities",
+          "fieldName": "ai_capabilities",
+          "fieldValue": "={{ $json.aiCapabilities }}"
+        },
+        {
+          "fieldId": "key_automation_task",
+          "fieldName": "key_automation_task",
+          "fieldValue": "={{ $json.automationTask }}"
+        },
+        {
+          "fieldId": "name",
+          "fieldName": "name",
+          "fieldValue": "={{ $json.contactName }}"
+        },
+        {
+          "fieldId": "email",
+          "fieldName": "email",
+          "fieldValue": "={{ $json.contactEmail }}"
+        },
+        {
+          "fieldId": "phone",
+          "fieldName": "phone",
+          "fieldValue": "={{ $json.contactPhone }}"
+        },
+        {
+          "fieldId": "consent",
+          "fieldName": "consent",
+          "fieldValue": "=true"
+        }
+      ]
+    }
+  },
+  "id": "save_to_supabase",
+  "name": "Save to Supabase",
+  "type": "n8n-nodes-base.supabase",
+  "typeVersion": 1,
+  "position": [
+    650,
+    300
+  ],
+  "credentials": {
+    "supabaseApi": {
+      "id": "1",
+      "name": "Supabase JeweledTech"
+    }
+  }
+}

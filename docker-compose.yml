@@ -7,10 +7,15 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - OLLAMA_HOST=ollama:11434
-      - MODEL_PATH=llama3.2:3b
+      - OLLAMA_HOST=http://ollama:11434
+      - OLLAMA_MODEL=llama3.2:3b
       - USE_MOCK_KB=false
       - PYTHONUNBUFFERED=1
+      # n8n Integration (uses n8n's native Instance-level MCP)
+      - N8N_HOST=${N8N_HOST:-https://localhost}
+      - N8N_MCP_SERVER_URI=${N8N_MCP_SERVER_URI:-https://localhost/mcp-server/http}
+      - FRAMEWORK_API_KEY=${FRAMEWORK_API_KEY:-dev-key}
+      - ENABLE_AUTH=${ENABLE_AUTH:-true}
     volumes:
       - ./knowledge_bases:/app/knowledge_bases
       - ./agents:/app/agents
@@ -40,6 +45,25 @@ services:
           memory: 8G
         reservations:
           memory: 4G
+
+  # n8n MCP Bridge (optional - enable when connecting to n8n)
+  # n8n-mcp:
+  #   image: node:18-slim
+  #   container_name: n8n-mcp-server
+  #   ports:
+  #     - "3007:3007"
+  #   environment:
+  #     - N8N_HOST=${N8N_HOST}
+  #     - N8N_API_KEY=${N8N_API_KEY}
+  #   working_dir: /app
+  #   command: npx @illuminaresolutions/n8n-mcp-server --port 3007
+  #   networks:
+  #     - agentic-network
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:3007/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
 
   # Optional: Demo UI (uncomment to enable)
   # demo-ui:

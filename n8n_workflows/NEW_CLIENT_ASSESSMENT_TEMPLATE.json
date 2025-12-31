@@ -1,0 +1,351 @@
+{
+  "name": "New Client Assessment Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "new-assessment",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "id": "webhook_assessment",
+      "name": "Assessment Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "webhookId": "new-client-assessment"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Extract and validate assessment data from webhook body\nconst data = $json.body;\n\nconst assessmentData = {\n  // Part 1: Business Overview\n  companyName: data.company_name || '',\n  industry: data.vertical || '',\n  companyDescription: data.company_description || '',\n  companySize: data.company_size || '',\n  \n  // Part 2: Strategic Goals\n  strategicPriorities: data.strategic_priorities || '',\n  operationalBottlenecks: data.operational_bottlenecks || '',\n  departmentsOfInterest: data.departments_of_interest || [],\n  \n  // Part 3: Technical Landscape\n  crmPlatform: data.crm_platforms?.[0] || '',\n  communicationPlatforms: data.communication_platforms || [],\n  projectManagement: data.project_management_platforms?.[0] || '',\n  otherPlatforms: '',\n  knowledgeBaseStatus: data.knowledge_base_status || '',\n  apiExperience: data.api_experience || '',\n  \n  // Part 4: AI Goals\n  aiCapabilities: data.ai_capabilities || [],\n  automationTask: data.key_automation_task || '',\n  \n  // Contact Info\n  contactName: data.name || '',\n  contactEmail: data.email || '',\n  contactPhone: data.phone || '',\n  \n  // Keep original data for reference\n  assessmentId: data.assessment_id,\n  submittedAt: data.submitted_at || new Date().toISOString(),\n  source: 'jeweledtech.com/input-form'\n};\n\nreturn assessmentData;"
+      },
+      "id": "validate_data",
+      "name": "Validate Assessment Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ ($env.CREWAI_API_URL || 'https://api.jeweledtech.com') + '/workflow/trigger' }}",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "User-Agent",
+              "value": "n8n-workflow/1.0"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  use_case: 'assessment_analysis',\n  department: ($json.departmentsOfInterest[0] || 'Sales').toLowerCase().replace(/ /g, '_'),\n  workflow_type: 'assessment_analysis',\n  timestamp: new Date().toISOString(),\n  data: {\n    assessment_id: $json.assessmentId,\n    company_name: $json.companyName,\n    vertical: $json.industry,\n    departments: $json.departmentsOfInterest,\n    priorities: $json.strategicPriorities,\n    bottlenecks: $json.operationalBottlenecks,\n    tools: {\n      crm: $json.crmPlatform,\n      communication: $json.communicationPlatforms,\n      project_management: $json.projectManagement\n    },\n    ai_goals: $json.aiCapabilities,\n    automation_needs: $json.automationTask,\n    contact: {\n      name: $json.contactName,\n      email: $json.contactEmail,\n      phone: $json.contactPhone\n    }\n  }\n}) }}",
+        "options": {
+          "timeout": 30000,
+          "retry": {
+            "enabled": true,
+            "maxTries": 3,
+            "waitBetweenTries": 2000
+          },
+          "response": {
+            "fullResponse": false,
+            "followRedirect": true,
+            "followAllRedirects": false,
+            "maxRedirects": 5
+          },
+          "ignoreHttpStatusErrors": false
+        }
+      },
+      "id": "solutions_architect",
+      "name": "Solutions Architect Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        650,
+        300
+      ],
+      "continueOnFail": true,
+      "alwaysOutputData": true,
+      "notes": "Enhanced HTTP Request node to replace Function node fetch() call with proper error handling, retries, and timeout configuration"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Process Solutions Architect response\nconst response = $json;\n\n// Handle the new workflow trigger response format\nconst analysis = {\n  workflow_id: response.workflow_id || '',\n  status: response.status || 'initiated',\n  message: response.message || 'Workflow started'\n};\n\n// Create workflow triggers for departments\nconst departmentWorkflows = [];\nconst departments = $node[\"Validate Assessment Data\"].json.departmentsOfInterest;\n\nif (departments.includes('Sales')) {\n  departmentWorkflows.push('sales_department_workflow');\n}\nif (departments.includes('Marketing')) {\n  departmentWorkflows.push('marketing_department_workflow');\n}\nif (departments.includes('Customer Support')) {\n  departmentWorkflows.push('customer_department_workflow');\n}\nif (departments.includes('Engineering')) {\n  departmentWorkflows.push('engineering_department_workflow');\n}\n\nreturn {\n  analysis: analysis,\n  workflowId: response.workflow_id,\n  triggeredWorkflows: departmentWorkflows,\n  assessmentId: $node[\"Assessment Webhook\"].json.assessmentId || Date.now().toString()\n};"
+      },
+      "id": "process_analysis",
+      "name": "Process Analysis",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        850,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.PRIVATEGPT_URL }}/v1/completions",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "prompt",
+              "value": "Based on this assessment analysis, generate a detailed proposal outline: {{ $json.analysis }}"
+            },
+            {
+              "name": "use_context",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "generate_proposal",
+      "name": "Generate Proposal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 2,
+      "position": [
+        1050,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "row",
+        "operation": "create",
+        "tableId": "enhanced_assessments",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "company_name",
+              "fieldName": "company_name",
+              "fieldValue": "={{ $json.companyName }}"
+            },
+            {
+              "fieldId": "vertical",
+              "fieldName": "vertical",
+              "fieldValue": "={{ $json.industry }}"
+            },
+            {
+              "fieldId": "company_size",
+              "fieldName": "company_size",
+              "fieldValue": "={{ $json.companySize }}"
+            },
+            {
+              "fieldId": "company_description",
+              "fieldName": "company_description",
+              "fieldValue": "={{ $json.companyDescription }}"
+            },
+            {
+              "fieldId": "strategic_priorities",
+              "fieldName": "strategic_priorities",
+              "fieldValue": "={{ $json.strategicPriorities }}"
+            },
+            {
+              "fieldId": "operational_bottlenecks",
+              "fieldName": "operational_bottlenecks",
+              "fieldValue": "={{ $json.operationalBottlenecks }}"
+            },
+            {
+              "fieldId": "departments_of_interest",
+              "fieldName": "departments_of_interest",
+              "fieldValue": "={{ $json.departmentsOfInterest }}"
+            },
+            {
+              "fieldId": "crm_platforms",
+              "fieldName": "crm_platforms",
+              "fieldValue": "={{ [$json.crmPlatform] }}"
+            },
+            {
+              "fieldId": "communication_platforms",
+              "fieldName": "communication_platforms",
+              "fieldValue": "={{ $json.communicationPlatforms }}"
+            },
+            {
+              "fieldId": "project_management_platforms",
+              "fieldName": "project_management_platforms",
+              "fieldValue": "={{ [$json.projectManagement] }}"
+            },
+            {
+              "fieldId": "knowledge_base_status",
+              "fieldName": "knowledge_base_status",
+              "fieldValue": "={{ $json.knowledgeBaseStatus }}"
+            },
+            {
+              "fieldId": "api_experience",
+              "fieldName": "api_experience",
+              "fieldValue": "={{ $json.apiExperience }}"
+            },
+            {
+              "fieldId": "ai_capabilities",
+              "fieldName": "ai_capabilities",
+              "fieldValue": "={{ $json.aiCapabilities }}"
+            },
+            {
+              "fieldId": "key_automation_task",
+              "fieldName": "key_automation_task",
+              "fieldValue": "={{ $json.automationTask }}"
+            },
+            {
+              "fieldId": "name",
+              "fieldName": "name",
+              "fieldValue": "={{ $json.contactName }}"
+            },
+            {
+              "fieldId": "email",
+              "fieldName": "email",
+              "fieldValue": "={{ $json.contactEmail }}"
+            },
+            {
+              "fieldId": "phone",
+              "fieldName": "phone",
+              "fieldValue": "={{ $json.contactPhone }}"
+            },
+            {
+              "fieldId": "consent",
+              "fieldName": "consent",
+              "fieldValue": "=true"
+            }
+          ]
+        }
+      },
+      "id": "save_to_supabase",
+      "name": "Save to Supabase",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1250,
+        200
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "Supabase JeweledTech"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "admin@jeweledtech.com",
+        "toEmail": "={{ $json.contactEmail }}",
+        "subject": "Your AI Workforce Assessment - Next Steps",
+        "text": "Thank you for completing the assessment. Our Solutions Architect Agent has analyzed your responses and we'll be in touch within 24 hours with a detailed proposal.",
+        "options": {}
+      },
+      "id": "send_confirmation",
+      "name": "Send Confirmation Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [
+        1250,
+        400
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "2",
+          "name": "SMTP JeweledTech"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Prepare final response\nconst assessmentData = $node[\"Validate Assessment Data\"].json;\nconst supabaseResult = $json; // Result from Save to Supabase\n\nreturn {\n  success: true,\n  assessmentId: assessmentData.assessmentId,\n  company: assessmentData.companyName,\n  message: \"Assessment received and processed successfully. Check your email for next steps.\",\n  savedToDatabase: supabaseResult.success || false,\n  nextSteps: [\n    'Our AI team will analyze your requirements',\n    'You will receive a detailed proposal within 24 hours',\n    'A demo environment will be prepared for your use case'\n  ]\n};"
+      },
+      "id": "prepare_response",
+      "name": "Prepare Response",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1450,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Assessment Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Assessment Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Assessment Data": {
+      "main": [
+        [
+          {
+            "node": "Solutions Architect Agent",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Save to Supabase",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Confirmation Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Supabase": {
+      "main": [
+        [
+          {
+            "node": "Prepare Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Confirmation Email": {
+      "main": [
+        []
+      ]
+    },
+    "Solutions Architect Agent": {
+      "main": [
+        []
+      ]
+    },
+    "Process Analysis": {
+      "main": [
+        []
+      ]
+    },
+    "Generate Proposal": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateId": "new-client-assessment"
+  },
+  "pinData": {}
+}

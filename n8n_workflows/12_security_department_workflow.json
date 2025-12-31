@@ -1,0 +1,123 @@
+{
+  "name": "Security Department Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "security-department",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "id": "webhook_security",
+      "name": "Security Department Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "security-department"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.CREWAI_API_URL }}/departments/security",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "call_crewai_security",
+      "name": "Call CrewAI Security",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "jsCode": "// Parse CrewAI response and execute actions\nconst crewAIResponse = $input.all()[0].json;\nconst actions = crewAIResponse.actions || [];\nconst results = [];\n\n// Store actions for execution\nreturn [{\n  json: {\n    crewAIResponse: crewAIResponse,\n    actions: actions,\n    executionStartTime: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "parse_actions",
+      "name": "Parse CrewAI Actions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "jsCode": "// Execute actions from CrewAI\nconst data = $input.all()[0].json;\nconst actions = data.actions || [];\nconst executionResults = [];\n\n// Log actions to be executed\nfor (const action of actions) {\n  executionResults.push({\n    action: action.type,\n    status: 'pending',\n    details: action.details\n  });\n}\n\n// Note: Actual action execution would be handled by subsequent nodes\n// based on action types (e.g., create_incident, scan_vulnerabilities, update_policy, etc.)\n\nreturn [{\n  json: {\n    ...data,\n    actionsPending: executionResults,\n    readyForExecution: true\n  }\n}];"
+      },
+      "id": "prepare_execution",
+      "name": "Prepare Action Execution",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "jsCode": "// Format final response\nconst data = $input.all()[0].json;\n\nreturn [{\n  json: {\n    success: true,\n    department: 'security',\n    timestamp: new Date().toISOString(),\n    crewAIResponse: data.crewAIResponse.response || data.crewAIResponse,\n    actionsRequested: data.actions.length,\n    message: 'Security department workflow completed. CrewAI instructions processed.'\n  }\n}];"
+      },
+      "id": "format_response",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 300]
+    }
+  ],
+  "connections": {
+    "Security Department Webhook": {
+      "main": [
+        [
+          {
+            "node": "Call CrewAI Security",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call CrewAI Security": {
+      "main": [
+        [
+          {
+            "node": "Parse CrewAI Actions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse CrewAI Actions": {
+      "main": [
+        [
+          {
+            "node": "Prepare Action Execution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Action Execution": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "instanceId": "security-department-simplified"
+  }
+}

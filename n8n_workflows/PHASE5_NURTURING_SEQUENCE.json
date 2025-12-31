@@ -1,0 +1,243 @@
+{
+  "name": "Phase 5: Proposal Nurturing Sequence",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "proposal-sent",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "id": "webhook_proposal_sent",
+      "name": "Proposal Sent Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "webhookId": "proposal-nurturing"
+    },
+    {
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "tableId": "solution_proposals",
+        "id": "={{ $json.body.proposal_id }}",
+        "additionalFields": {}
+      },
+      "id": "get_proposal_details",
+      "name": "Get Proposal Details",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        450,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "Supabase JeweledTech"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Schedule follow-up emails\nconst proposal = $json;\nconst now = new Date();\n\n// Define follow-up schedule\nconst followUps = [\n  {\n    delay_days: 3,\n    subject: 'Quick question about your AI proposal',\n    template: 'followup_3_days'\n  },\n  {\n    delay_days: 7,\n    subject: 'Case study: How {{similar_company}} automated with AI',\n    template: 'followup_7_days'\n  },\n  {\n    delay_days: 14,\n    subject: 'Your AI proposal expires soon',\n    template: 'followup_14_days'\n  },\n  {\n    delay_days: 28,\n    subject: 'Final reminder: AI proposal expires in 2 days',\n    template: 'followup_28_days'\n  }\n];\n\n// Calculate send times\nconst scheduledEmails = followUps.map(followUp => {\n  const sendDate = new Date(now);\n  sendDate.setDate(sendDate.getDate() + followUp.delay_days);\n  \n  return {\n    proposal_id: proposal.id,\n    assessment_id: proposal.assessment_id,\n    company_name: proposal.company_name,\n    contact_email: proposal.contact_email,\n    send_at: sendDate.toISOString(),\n    delay_days: followUp.delay_days,\n    subject: followUp.subject.replace('{{similar_company}}', getSimilarCompany(proposal.industry)),\n    template: followUp.template,\n    status: 'scheduled'\n  };\n});\n\nfunction getSimilarCompany(industry) {\n  const examples = {\n    'Technology': 'TechCorp',\n    'Healthcare': 'MedFlow Systems',\n    'Finance': 'FinanceFirst',\n    'Retail': 'RetailMax',\n    'Manufacturing': 'ManuTech Industries'\n  };\n  return examples[industry] || 'Industry Leader';\n}\n\nreturn scheduledEmails;"
+      },
+      "id": "schedule_followups",
+      "name": "Schedule Follow-ups",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        650,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "row",
+        "operation": "create",
+        "tableId": "email_nurture_queue",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "proposal_id",
+              "fieldName": "proposal_id",
+              "fieldValue": "={{ $json.proposal_id }}"
+            },
+            {
+              "fieldId": "assessment_id",
+              "fieldName": "assessment_id", 
+              "fieldValue": "={{ $json.assessment_id }}"
+            },
+            {
+              "fieldId": "company_name",
+              "fieldName": "company_name",
+              "fieldValue": "={{ $json.company_name }}"
+            },
+            {
+              "fieldId": "contact_email",
+              "fieldName": "contact_email",
+              "fieldValue": "={{ $json.contact_email }}"
+            },
+            {
+              "fieldId": "send_at",
+              "fieldName": "send_at",
+              "fieldValue": "={{ $json.send_at }}"
+            },
+            {
+              "fieldId": "delay_days",
+              "fieldName": "delay_days",
+              "fieldValue": "={{ $json.delay_days }}"
+            },
+            {
+              "fieldId": "subject",
+              "fieldName": "subject",
+              "fieldValue": "={{ $json.subject }}"
+            },
+            {
+              "fieldId": "template",
+              "fieldName": "template",
+              "fieldValue": "={{ $json.template }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldName": "status",
+              "fieldValue": "={{ $json.status }}"
+            }
+          ]
+        }
+      },
+      "id": "save_to_nurture_queue",
+      "name": "Save to Nurture Queue",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        850,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "Supabase JeweledTech"
+        }
+      },
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "authentication": "appToken",
+        "resource": "engagement",
+        "operation": "create", 
+        "type": "email",
+        "contactId": "={{ $node['Get Proposal Details'].json.hubspot_contact_id }}",
+        "metadata": {
+          "from": {
+            "email": "admin@jeweledtech.com",
+            "firstName": "JeweledTech",
+            "lastName": "AI"
+          },
+          "to": [
+            {
+              "email": "={{ $node['Get Proposal Details'].json.contact_email }}"
+            }
+          ],
+          "subject": "AI Proposal Follow-up Sequence Initiated",
+          "html": "<p>Follow-up sequence has been scheduled for your AI proposal.</p>"
+        }
+      },
+      "id": "log_to_hubspot",
+      "name": "Log to HubSpot",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2,
+      "position": [
+        1050,
+        300
+      ],
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "hubspot_api",
+          "name": "HubSpot Private App"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "functionCode": "// Prepare response\nconst scheduledCount = $items.length;\n\nreturn {\n  success: true,\n  message: `Nurturing sequence initiated successfully`,\n  proposal_id: $node['Get Proposal Details'].json.id,\n  company_name: $node['Get Proposal Details'].json.company_name,\n  emails_scheduled: scheduledCount,\n  schedule: [\n    '3 days: Quick follow-up',\n    '7 days: Case study',\n    '14 days: Urgency reminder',\n    '28 days: Final reminder'\n  ]\n};"
+      },
+      "id": "prepare_response",
+      "name": "Prepare Response",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1250,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Proposal Sent Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get Proposal Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Proposal Details": {
+      "main": [
+        [
+          {
+            "node": "Schedule Follow-ups",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Follow-ups": {
+      "main": [
+        [
+          {
+            "node": "Save to Nurture Queue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Nurture Queue": {
+      "main": [
+        [
+          {
+            "node": "Log to HubSpot",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prepare Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateId": "phase5-nurturing-sequence"
+  },
+  "pinData": {}
+}

@@ -1,0 +1,893 @@
+{
+  "name": "MVP Integration Tests Complete",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "test-integrations",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook_test",
+      "name": "Test Integrations Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "integration-tests"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Parse test request\nconst inputData = $input.all()[0].json;\n// Handle both direct integration field and nested body.integration\nconst integration = inputData.integration || (inputData.body && inputData.body.integration) || null;\nconst action = inputData.action || (inputData.body && inputData.body.action) || 'test';\n\nif (!integration) {\n  throw new Error('No integration specified in request');\n}\n\nreturn [{\n  json: {\n    integration: integration,\n    action: action,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "parse_request",
+      "name": "Parse Test Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.integration }}",
+              "operation": "equal",
+              "value2": "gmail"
+            }
+          ]
+        }
+      },
+      "id": "if_gmail",
+      "name": "If Gmail",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 100]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "techintelligencetraining@gmail.com",
+        "subject": "n8n Gmail Integration Test",
+        "messageType": "text",
+        "message": "This is a test email from n8n to verify Gmail integration is working.\n\nTimestamp: {{ $now.toISO() }}\nDepartment: All\nPurpose: MVP Integration Test"
+      },
+      "id": "gmail_send",
+      "name": "Send Test Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [850, 50],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmailOAuth2",
+          "name": "Gmail OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.integration }}",
+              "operation": "equal",
+              "value2": "hubspot"
+            }
+          ]
+        }
+      },
+      "id": "if_hubspot",
+      "name": "If HubSpot",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 200]
+    },
+    {
+      "parameters": {
+        "authentication": "apiKey",
+        "resource": "contact",
+        "operation": "upsert",
+        "email": "admin@jeweledtech.com",
+        "properties": {
+          "property": [
+            {
+              "name": "email",
+              "value": "admin@jeweledtech.com"
+            },
+            {
+              "name": "firstname",
+              "value": "n8n"
+            },
+            {
+              "name": "lastname",
+              "value": "Integration Test"
+            },
+            {
+              "name": "company",
+              "value": "JeweledTech"
+            }
+          ]
+        }
+      },
+      "id": "hubspot_create",
+      "name": "Create Test Contact",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2,
+      "position": [850, 150],
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "hubspot_private_app",
+          "name": "HubSpot Private App"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.integration }}",
+              "operation": "equal",
+              "value2": "google-calendar"
+            }
+          ]
+        }
+      },
+      "id": "if_calendar",
+      "name": "If Google Calendar",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.googleapis.com/calendar/v3/calendars/primary/events",
+        "authentication": "oAuth2",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"summary\": \"n8n Integration Test Event - {{ $now.toISO() }}\",\n  \"description\": \"This is a test event created by n8n to verify Google Calendar integration\",\n  \"start\": {\n    \"dateTime\": \"{{ $now.plus({hours: 1}).toISO() }}\",\n    \"timeZone\": \"UTC\"\n  },\n  \"end\": {\n    \"dateTime\": \"{{ $now.plus({hours: 2}).toISO() }}\",\n    \"timeZone\": \"UTC\"\n  }\n}",
+        "options": {
+          "errorIfEmpty": false
+        }
+      },
+      "id": "calendar_create",
+      "name": "Create Test Event",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [850, 250],
+      "credentials": {
+        "googleCalendarOAuth2": {
+          "id": "googleCalendarOAuth2",
+          "name": "Google Calendar OAuth2"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.integration }}",
+              "operation": "equal",
+              "value2": "github"
+            }
+          ]
+        }
+      },
+      "id": "if_github",
+      "name": "If GitHub",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 400]
+    },
+    {
+      "parameters": {
+        "authentication": "accessToken",
+        "resource": "issue",
+        "operation": "create",
+        "owner": "jeweledtech",
+        "repository": "agentic-system",
+        "title": "n8n Integration Test Issue",
+        "body": "This is a test issue created by n8n to verify GitHub integration.\n\nCreated at: {{ $now.toISO() }}"
+      },
+      "id": "github_create",
+      "name": "Create Test Issue",
+      "type": "n8n-nodes-base.github",
+      "typeVersion": 1,
+      "position": [850, 350],
+      "credentials": {
+        "githubApi": {
+          "id": "githubApi",
+          "name": "GitHub API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.integration }}",
+              "operation": "equal",
+              "value2": "freshdesk"
+            }
+          ]
+        }
+      },
+      "id": "if_freshdesk",
+      "name": "If Freshdesk",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 500]
+    },
+    {
+      "parameters": {
+        "authentication": "apiKey",
+        "resource": "ticket",
+        "operation": "create",
+        "requesterIdentification": "email",
+        "email": "admin@jeweledtech.com",
+        "subject": "n8n Integration Test Ticket - {{ $now.toISO() }}",
+        "description": "This is a test ticket created by n8n to verify Freshdesk integration.\n\nTest performed at: {{ $now.toISO() }}\nIntegration: Freshdesk API\nPurpose: MVP Integration Testing",
+        "priority": 1,
+        "status": 2
+      },
+      "id": "freshdesk_create",
+      "name": "Create Test Ticket",
+      "type": "n8n-nodes-base.freshdesk",
+      "typeVersion": 1,
+      "position": [850, 450],
+      "credentials": {
+        "freshdeskApi": {
+          "id": "freshdeskApi",
+          "name": "Freshdesk API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.integration }}",
+              "operation": "equal",
+              "value2": "slack"
+            }
+          ]
+        }
+      },
+      "id": "if_slack",
+      "name": "If Slack",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 600]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": "all-jeweled-tech",
+        "text": "🧪 n8n Integration Test\n\nThis is a test message from n8n to verify Slack integration is working.\n\nTimestamp: {{ $now.toISO() }}"
+      },
+      "id": "slack_post",
+      "name": "Post Test Message",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [850, 550],
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "slackOAuth2Api",
+          "name": "Slack OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.integration }}",
+              "operation": "equal",
+              "value2": "notion"
+            }
+          ]
+        }
+      },
+      "id": "if_notion",
+      "name": "If Notion",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 700]
+    },
+    {
+      "parameters": {
+        "authentication": "apiKey",
+        "resource": "database",
+        "operation": "getAll",
+        "databaseId": "1cbbc254-bbd8-8063-8ae1-f48b988fb45f",
+        "returnAll": false,
+        "limit": 1,
+        "simple": true
+      },
+      "id": "notion_create",
+      "name": "Test Notion Database",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [850, 650],
+      "credentials": {
+        "notionApi": {
+          "id": "notionApi",
+          "name": "Notion API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.integration }}",
+              "operation": "equal",
+              "value2": "supabase"
+            }
+          ]
+        }
+      },
+      "id": "if_supabase",
+      "name": "If Supabase",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 800]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://mywhnjsmoocctcrohgmb.supabase.co/rest/v1/test_logs",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im15d2huanNtb29jY3Rjcm9oZ21iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkyNDcxNzYsImV4cCI6MjA2NDgyMzE3Nn0.GgGa3W_XQwOxw4q-UUkUiCShzl4tYN6PmS5hp4uXiuo"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "integration",
+              "value": "n8n"
+            },
+            {
+              "name": "action",
+              "value": "test"
+            },
+            {
+              "name": "timestamp",
+              "value": "={{ $now.toISO() }}"
+            },
+            {
+              "name": "status",
+              "value": "success"
+            }
+          ]
+        }
+      },
+      "id": "supabase_insert",
+      "name": "Insert Test Record",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [850, 750]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.integration }}",
+              "operation": "equal",
+              "value2": "wave"
+            }
+          ]
+        }
+      },
+      "id": "if_wave",
+      "name": "If Wave",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 900]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://gql.waveapps.com/graphql/public",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.WAVE_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "mutation { invoiceCreate(input: { businessId: \"{{ $env.WAVE_BUSINESS_ID }}\", customerId: \"TEST_CUSTOMER_ID\", items: [{ productId: \"TEST_PRODUCT_ID\", quantity: 1, unitPrice: 100.00 }] }) { invoice { id invoiceNumber } } }"
+            }
+          ]
+        },
+        "options": {
+          "errorIfEmpty": false
+        }
+      },
+      "id": "wave_test",
+      "name": "Test Wave Invoice",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [850, 850],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.integration }}",
+              "operation": "equal",
+              "value2": "wazuh"
+            }
+          ]
+        }
+      },
+      "id": "if_wazuh",
+      "name": "If Wazuh",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 1000]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://wazuh-api.jeweledtech.com/security/user/authenticate",
+        "authentication": "basicAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "errorIfEmpty": false
+        }
+      },
+      "id": "wazuh_auth",
+      "name": "Authenticate Wazuh",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [850, 950],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "wazuhAuth",
+          "name": "Wazuh Auth"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Check if Wazuh authentication was successful\nconst authResult = $input.all()[0].json;\nif (authResult && authResult.data && authResult.data.token) {\n  // If we have a token, try to get alerts\n  return [{\n    json: {\n      token: authResult.data.token,\n      action: 'get_alerts'\n    }\n  }];\n} else {\n  // Authentication failed, return test result\n  return [{\n    json: {\n      integration: 'wazuh',\n      status: 'authentication_failed',\n      message: 'Could not authenticate with Wazuh API'\n    }\n  }];\n}"
+      },
+      "id": "wazuh_process_auth",
+      "name": "Process Wazuh Auth",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 950]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://wazuh-api.jeweledtech.com/alerts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $json.token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "limit",
+              "value": "5"
+            },
+            {
+              "name": "sort",
+              "value": "-timestamp"
+            }
+          ]
+        },
+        "options": {
+          "errorIfEmpty": false
+        }
+      },
+      "id": "wazuh_get_alerts",
+      "name": "Get Wazuh Alerts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1250, 950],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Collect all test results\nconst results = [];\nconst input = $input.all();\n\n// Add result based on which integration was tested\nif (input.length > 0) {\n  const integration = $node[\"Parse Test Request\"].json.integration;\n  \n  // Handle special cases for Wave and Wazuh\n  if (integration === 'wave') {\n    results.push({\n      integration: integration,\n      status: input[0].json.errors ? 'failed' : 'success',\n      timestamp: new Date().toISOString(),\n      details: input[0].json,\n      message: 'Wave integration test completed (Note: requires valid customer/product IDs for full test)'\n    });\n  } else if (integration === 'wazuh') {\n    const alertData = input[0].json;\n    results.push({\n      integration: integration,\n      status: alertData.data ? 'success' : 'failed',\n      timestamp: new Date().toISOString(),\n      alertCount: alertData.data ? alertData.data.total_items : 0,\n      message: alertData.data ? `Found ${alertData.data.total_items} alerts` : 'Could not retrieve alerts'\n    });\n  } else {\n    results.push({\n      integration: integration,\n      status: 'success',\n      timestamp: new Date().toISOString(),\n      details: input[0].json\n    });\n  }\n}\n\nreturn results;"
+      },
+      "id": "collect_results",
+      "name": "Collect Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1450, 400]
+    }
+  ],
+  "connections": {
+    "Test Integrations Webhook": {
+      "main": [
+        [
+          {
+            "node": "Parse Test Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Test Request": {
+      "main": [
+        [
+          {
+            "node": "If Gmail",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If HubSpot",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If Google Calendar",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If GitHub",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If Freshdesk",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If Slack",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If Notion",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If Supabase",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If Wave",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If Wazuh",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Gmail": {
+      "main": [
+        [
+          {
+            "node": "Send Test Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "If HubSpot": {
+      "main": [
+        [
+          {
+            "node": "Create Test Contact",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "If Google Calendar": {
+      "main": [
+        [
+          {
+            "node": "Create Test Event",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "If GitHub": {
+      "main": [
+        [
+          {
+            "node": "Create Test Issue",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "If Freshdesk": {
+      "main": [
+        [
+          {
+            "node": "Create Test Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "If Slack": {
+      "main": [
+        [
+          {
+            "node": "Post Test Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "If Notion": {
+      "main": [
+        [
+          {
+            "node": "Test Notion Database",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "If Supabase": {
+      "main": [
+        [
+          {
+            "node": "Insert Test Record",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "If Wave": {
+      "main": [
+        [
+          {
+            "node": "Test Wave Invoice",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "If Wazuh": {
+      "main": [
+        [
+          {
+            "node": "Authenticate Wazuh",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Send Test Email": {
+      "main": [
+        [
+          {
+            "node": "Collect Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Test Contact": {
+      "main": [
+        [
+          {
+            "node": "Collect Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Test Event": {
+      "main": [
+        [
+          {
+            "node": "Collect Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Test Issue": {
+      "main": [
+        [
+          {
+            "node": "Collect Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Test Ticket": {
+      "main": [
+        [
+          {
+            "node": "Collect Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post Test Message": {
+      "main": [
+        [
+          {
+            "node": "Collect Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test Notion Database": {
+      "main": [
+        [
+          {
+            "node": "Collect Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Test Record": {
+      "main": [
+        [
+          {
+            "node": "Collect Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test Wave Invoice": {
+      "main": [
+        [
+          {
+            "node": "Collect Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Authenticate Wazuh": {
+      "main": [
+        [
+          {
+            "node": "Process Wazuh Auth",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Wazuh Auth": {
+      "main": [
+        [
+          {
+            "node": "Get Wazuh Alerts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Wazuh Alerts": {
+      "main": [
+        [
+          {
+            "node": "Collect Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

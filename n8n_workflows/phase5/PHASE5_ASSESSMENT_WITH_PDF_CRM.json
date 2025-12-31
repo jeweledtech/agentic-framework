@@ -1,0 +1,711 @@
+{
+  "name": "Phase 5: Assessment with PDF Generation & CRM",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "new-assessment",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "id": "webhook_assessment",
+      "name": "Assessment Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "webhookId": "new-client-assessment"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Start execution timer and logging\nconst startTime = new Date();\nconst executionId = $execution.id;\n\nreturn [{\n  json: {\n    execution_id: executionId,\n    timestamp_start: startTime.toISOString(),\n    workflow_name: 'assessment_with_pdf_crm',\n    webhook_path: $json.path || '/new-assessment',\n    source_ip: $json.headers['x-forwarded-for'] || $json.headers['x-real-ip'] || 'unknown',\n    user_agent: $json.headers['user-agent'] || 'unknown'\n  }\n}];"
+      },
+      "id": "start_timer",
+      "name": "Start Timer",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        250,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Extract and validate assessment data from webhook body\nconst data = $json.body;\n\n// Helper function to ensure arrays are properly formatted for Supabase\nfunction ensureArray(value, defaultValue = []) {\n  if (Array.isArray(value)) {\n    return value.length > 0 ? value : defaultValue;\n  }\n  if (value === null || value === undefined || value === '') {\n    return defaultValue;\n  }\n  // If it's a string, try to parse as JSON or wrap in array\n  if (typeof value === 'string') {\n    if (value.trim() === '') return defaultValue;\n    try {\n      const parsed = JSON.parse(value);\n      return Array.isArray(parsed) ? parsed : [value];\n    } catch {\n      return [value];\n    }\n  }\n  return [value];\n}\n\nconst assessmentData = {\n  // Part 1: Business Overview\n  companyName: data.company_name || '',\n  industry: data.vertical || '',\n  companyDescription: data.company_description || '',\n  companySize: data.company_size || '',\n  \n  // Part 2: Strategic Goals\n  strategicPriorities: data.strategic_priorities || '',\n  operationalBottlenecks: data.operational_bottlenecks || '',\n  departmentsOfInterest: ensureArray(data.departments_of_interest, ['General']),\n  \n  // Part 3: Technical Landscape\n  crmPlatform: data.crm_platforms?.[0] || '',\n  communicationPlatforms: ensureArray(data.communication_platforms, []),\n  projectManagement: data.project_management_platforms?.[0] || '',\n  otherPlatforms: '',\n  knowledgeBaseStatus: data.knowledge_base_status || '',\n  apiExperience: data.api_experience || '',\n  \n  // Part 4: AI Goals\n  aiCapabilities: ensureArray(data.ai_capabilities, []),\n  automationTask: data.key_automation_task || '',\n  \n  // Contact Info\n  contactName: data.name || '',\n  contactEmail: data.email || '',\n  contactPhone: data.phone || '',\n  \n  // Keep original data for reference\n  assessmentId: data.assessment_id,\n  submittedAt: data.submitted_at || new Date().toISOString(),\n  source: 'jeweledtech.com/input-form'\n};\n\nreturn assessmentData;"
+      },
+      "id": "validate_data",
+      "name": "Validate Assessment Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "1a1b3f5d-0b1e-4b1e-8e1e-1e1e1e1e1e1e",
+              "leftValue": "={{ $json.contactEmail }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "regex",
+                "rightType": "any"
+              }
+            },
+            {
+              "id": "2b2c4f6e-1c2f-5c2f-9f2f-2f2f2f2f2f2f",
+              "leftValue": "={{ $json.companyName }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            },
+            {
+              "id": "3c3d5f7f-2d3g-6d3g-ag3g-3g3g3g3g3g3g",
+              "leftValue": "={{ $json.industry }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            },
+            {
+              "id": "4d4e6f8g-3e4h-7e4h-bh4h-4h4h4h4h4h4h",
+              "leftValue": "={{ $json.contactName }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true
+      },
+      "id": "validate_required_fields",
+      "name": "Validate Required Fields",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        550,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": false,\n  \"error\": \"Validation failed\",\n  \"message\": \"Required fields are missing or invalid. Please check: company name, industry, contact name, and email format.\",\n  \"missing_fields\": [\n    {{ $json.companyName ? '' : '\"company_name\"' }},\n    {{ $json.industry ? '' : '\"industry\"' }},\n    {{ $json.contactName ? '' : '\"contact_name\"' }},\n    {{ $json.contactEmail && $json.contactEmail.match(/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/) ? '' : '\"valid_email\"' }}\n  ].filter(field => field !== '').join(', ')\n}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "validation_error_response",
+      "name": "Validation Error Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        550,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "row",
+        "operation": "create",
+        "tableId": "enhanced_assessments",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "company_name",
+              "fieldName": "company_name",
+              "fieldValue": "={{ $json.companyName }}"
+            },
+            {
+              "fieldId": "vertical",
+              "fieldName": "vertical",
+              "fieldValue": "={{ $json.industry }}"
+            },
+            {
+              "fieldId": "company_size",
+              "fieldName": "company_size",
+              "fieldValue": "={{ $json.companySize }}"
+            },
+            {
+              "fieldId": "company_description",
+              "fieldName": "company_description",
+              "fieldValue": "={{ $json.companyDescription }}"
+            },
+            {
+              "fieldId": "strategic_priorities",
+              "fieldName": "strategic_priorities",
+              "fieldValue": "={{ $json.strategicPriorities }}"
+            },
+            {
+              "fieldId": "operational_bottlenecks",
+              "fieldName": "operational_bottlenecks",
+              "fieldValue": "={{ $json.operationalBottlenecks }}"
+            },
+            {
+              "fieldId": "departments_of_interest",
+              "fieldName": "departments_of_interest",
+              "fieldValue": "={{ $json.departmentsOfInterest }}"
+            },
+            {
+              "fieldId": "crm_platforms",
+              "fieldName": "crm_platforms",
+              "fieldValue": "={{ $json.crmPlatform ? [$json.crmPlatform] : [] }}"
+            },
+            {
+              "fieldId": "communication_platforms",
+              "fieldName": "communication_platforms",
+              "fieldValue": "={{ $json.communicationPlatforms }}"
+            },
+            {
+              "fieldId": "project_management_platforms",
+              "fieldName": "project_management_platforms",
+              "fieldValue": "={{ $json.projectManagement ? [$json.projectManagement] : [] }}"
+            },
+            {
+              "fieldId": "knowledge_base_status",
+              "fieldName": "knowledge_base_status",
+              "fieldValue": "={{ $json.knowledgeBaseStatus }}"
+            },
+            {
+              "fieldId": "api_experience",
+              "fieldName": "api_experience",
+              "fieldValue": "={{ $json.apiExperience }}"
+            },
+            {
+              "fieldId": "ai_capabilities",
+              "fieldName": "ai_capabilities",
+              "fieldValue": "={{ $json.aiCapabilities }}"
+            },
+            {
+              "fieldId": "key_automation_task",
+              "fieldName": "key_automation_task",
+              "fieldValue": "={{ $json.automationTask }}"
+            },
+            {
+              "fieldId": "name",
+              "fieldName": "name",
+              "fieldValue": "={{ $json.contactName }}"
+            },
+            {
+              "fieldId": "email",
+              "fieldName": "email",
+              "fieldValue": "={{ $json.contactEmail }}"
+            },
+            {
+              "fieldId": "phone",
+              "fieldName": "phone",
+              "fieldValue": "={{ $json.contactPhone }}"
+            },
+            {
+              "fieldId": "consent",
+              "fieldName": "consent",
+              "fieldValue": "=true"
+            }
+          ]
+        }
+      },
+      "id": "save_to_supabase",
+      "name": "Save to Supabase",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        650,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "Supabase JeweledTech"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ ($env.CREWAI_API_URL || 'https://api.jeweledtech.com') + '/workflow/trigger' }}",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "User-Agent",
+              "value": "n8n-workflow/1.0"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  use_case: 'assessment_analysis',\n  department: ($node['Validate Assessment Data'].json.departmentsOfInterest[0] || 'Sales').toLowerCase().replace(/ /g, '_'),\n  workflow_type: 'assessment_analysis',\n  timestamp: new Date().toISOString(),\n  data: {\n    assessment_id: $node['Validate Assessment Data'].json.assessmentId,\n    company_name: $node['Validate Assessment Data'].json.companyName,\n    vertical: $node['Validate Assessment Data'].json.industry,\n    departments: $node['Validate Assessment Data'].json.departmentsOfInterest,\n    priorities: $node['Validate Assessment Data'].json.strategicPriorities,\n    bottlenecks: $node['Validate Assessment Data'].json.operationalBottlenecks,\n    tools: {\n      crm: $node['Validate Assessment Data'].json.crmPlatform,\n      communication: $node['Validate Assessment Data'].json.communicationPlatforms,\n      project_management: $node['Validate Assessment Data'].json.projectManagement\n    },\n    ai_goals: $node['Validate Assessment Data'].json.aiCapabilities,\n    automation_needs: $node['Validate Assessment Data'].json.automationTask,\n    contact: {\n      name: $node['Validate Assessment Data'].json.contactName,\n      email: $node['Validate Assessment Data'].json.contactEmail,\n      phone: $node['Validate Assessment Data'].json.contactPhone\n    }\n  }\n}) }}",
+        "options": {
+          "timeout": 30000,
+          "retry": {
+            "enabled": true,
+            "maxTries": 3,
+            "waitBetweenTries": 2000
+          },
+          "response": {
+            "fullResponse": false,
+            "followRedirect": true,
+            "followAllRedirects": false,
+            "maxRedirects": 5
+          },
+          "ignoreHttpStatusErrors": false
+        }
+      },
+      "id": "solutions_architect",
+      "name": "Solutions Architect Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        850,
+        300
+      ],
+      "continueOnFail": true,
+      "alwaysOutputData": true,
+      "notes": "Enhanced HTTP Request node to replace Function node fetch() call with proper error handling, retries, and timeout configuration"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Generate HTML proposal from agent response\nconst assessmentData = $node['Validate Assessment Data'].json;\nconst agentResponse = $json;\n\n// Extract proposal content from agent response\nconst proposalContent = agentResponse.result || agentResponse.proposal || 'Proposal generation in progress...';\n\n// Create professional HTML template\nconst htmlTemplate = `\n<!DOCTYPE html>\n<html>\n<head>\n    <meta charset=\"UTF-8\">\n    <style>\n        body {\n            font-family: 'Arial', sans-serif;\n            line-height: 1.6;\n            color: #333;\n            margin: 0;\n            padding: 0;\n        }\n        .container {\n            max-width: 800px;\n            margin: 0 auto;\n            padding: 40px 20px;\n        }\n        .header {\n            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);\n            color: white;\n            padding: 40px;\n            text-align: center;\n            margin: -40px -20px 40px -20px;\n        }\n        .logo {\n            font-size: 28px;\n            font-weight: bold;\n            margin-bottom: 10px;\n        }\n        h1 {\n            margin: 0;\n            font-size: 32px;\n        }\n        h2 {\n            color: #667eea;\n            margin-top: 30px;\n        }\n        .company-info {\n            background: #f8f9fa;\n            padding: 20px;\n            border-radius: 8px;\n            margin-bottom: 30px;\n        }\n        .section {\n            margin-bottom: 30px;\n        }\n        .highlight {\n            background: #e7f3ff;\n            padding: 20px;\n            border-left: 4px solid #667eea;\n            margin: 20px 0;\n        }\n        .cta {\n            background: #667eea;\n            color: white;\n            padding: 15px 30px;\n            text-align: center;\n            text-decoration: none;\n            border-radius: 5px;\n            display: inline-block;\n            margin: 20px 0;\n        }\n        .footer {\n            margin-top: 50px;\n            padding-top: 20px;\n            border-top: 1px solid #ddd;\n            text-align: center;\n            color: #666;\n            font-size: 14px;\n        }\n        ul {\n            padding-left: 20px;\n        }\n        li {\n            margin-bottom: 10px;\n        }\n    </style>\n</head>\n<body>\n    <div class=\"container\">\n        <div class=\"header\">\n            <div class=\"logo\">JeweledTech AI</div>\n            <h1>Custom AI Workforce Proposal</h1>\n            <p>Prepared for ${assessmentData.companyName}</p>\n        </div>\n        \n        <div class=\"company-info\">\n            <h2>Executive Summary</h2>\n            <p><strong>Company:</strong> ${assessmentData.companyName}</p>\n            <p><strong>Industry:</strong> ${assessmentData.industry}</p>\n            <p><strong>Contact:</strong> ${assessmentData.contactName}</p>\n            <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>\n        </div>\n        \n        <div class=\"section\">\n            <h2>Your AI Transformation Journey</h2>\n            ${proposalContent}\n        </div>\n        \n        <div class=\"highlight\">\n            <h3>Strategic Priorities Addressed</h3>\n            <p>${assessmentData.strategicPriorities}</p>\n            \n            <h3>Operational Bottlenecks We'll Solve</h3>\n            <p>${assessmentData.operationalBottlenecks}</p>\n        </div>\n        \n        <div class=\"section\">\n            <h2>Next Steps</h2>\n            <ol>\n                <li>Review this proposal with your team</li>\n                <li>Schedule a 30-minute strategy call to discuss implementation</li>\n                <li>Receive a custom demo tailored to your use case</li>\n                <li>Begin your AI transformation journey</li>\n            </ol>\n            \n            <a href=\"https://calendly.com/jeweledtech/strategy-call\" class=\"cta\">\n                Book Your Strategy Call\n            </a>\n        </div>\n        \n        <div class=\"footer\">\n            <p>This proposal is valid for 30 days from ${new Date().toLocaleDateString()}</p>\n            <p>JeweledTech AI | admin@jeweledtech.com | Assessment ID: ${assessmentData.assessmentId}</p>\n        </div>\n    </div>\n</body>\n</html>\n`;\n\n// Return HTML for PDF generation\nreturn [{\n  json: {\n    proposalHtml: htmlTemplate,\n    assessmentId: assessmentData.assessmentId,\n    companyName: assessmentData.companyName,\n    contactEmail: assessmentData.contactEmail,\n    contactName: assessmentData.contactName,\n    agentResponse: agentResponse\n  }\n}];"
+      },
+      "id": "generate_proposal_html",
+      "name": "Generate Proposal HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1050,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.pdfshift.io/v3/convert/pdf",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  source: $json.proposalHtml,\n  landscape: false,\n  format: 'A4',\n  margin: '20px',\n  filename: `proposal_${$json.assessmentId}.pdf`\n}) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "generate_pdf",
+      "name": "Generate PDF (PDFShift)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1250,
+        300
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "pdfshift_api",
+          "name": "PDFShift API"
+        }
+      },
+      "continueOnFail": true,
+      "notes": "Alternative: Use APITemplate.io, Documint, or Code node with puppeteer"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.resend.com/emails",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"from\": \"{{ $env.FROM_EMAIL || 'JeweledTech <admin@jeweledtech.com>' }}\",\n  \"to\": [\"{{ $node['Generate Proposal HTML'].json.contactEmail }}\"],\n  \"subject\": \"Your Custom AI Workforce Proposal is Ready - {{ $node['Generate Proposal HTML'].json.companyName }}\",\n  \"html\": \"<div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>\\n  <h2 style='color: #333;'>Your AI Transformation Proposal is Ready!</h2>\\n  \\n  <p>Hi {{ $node['Generate Proposal HTML'].json.contactName }},</p>\\n  \\n  <p>Great news! Our AI Solutions Architect has completed the analysis of your requirements and prepared a custom proposal for <strong>{{ $node['Generate Proposal HTML'].json.companyName }}</strong>.</p>\\n  \\n  <div style='background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;'>\\n    <h3 style='color: #667eea; margin-top: 0;'>Your Proposal Includes:</h3>\\n    <ul style='margin: 10px 0;'>\\n      <li>Custom AI workforce recommendations for your industry</li>\\n      <li>Solutions for your specific operational bottlenecks</li>\\n      <li>Integration plan for your existing tools</li>\\n      <li>ROI projections and implementation timeline</li>\\n    </ul>\\n  </div>\\n  \\n  <p><strong>Please find your detailed proposal attached as a PDF.</strong></p>\\n  \\n  <div style='text-align: center; margin: 30px 0;'>\\n    <a href='https://calendly.com/jeweledtech/strategy-call' style='background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block;'>Book Your Strategy Call</a>\\n  </div>\\n  \\n  <p>I'd love to walk you through the proposal and answer any questions. Click the button above to schedule a 30-minute strategy call at your convenience.</p>\\n  \\n  <p>Best regards,<br>\\n  <strong>The JeweledTech AI Team</strong></p>\\n  \\n  <hr style='margin-top: 40px; border: none; border-top: 1px solid #eee;'>\\n  <p style='font-size: 12px; color: #999;'>This proposal is valid for 30 days. Assessment ID: {{ $node['Generate Proposal HTML'].json.assessmentId }}</p>\\n</div>\",\n  \"reply_to\": \"{{ $env.REPLY_TO_EMAIL || 'admin@jeweledtech.com' }}\",\n  \"attachments\": [\n    {\n      \"filename\": \"AI_Workforce_Proposal_{{ $node['Generate Proposal HTML'].json.companyName.replace(/ /g, '_') }}.pdf\",\n      \"content\": \"{{ $node['Generate PDF (PDFShift)'].data }}\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "send_proposal_email",
+      "name": "Send Proposal Email (Resend)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1450,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "resend_api",
+          "name": "Resend API"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "authentication": "appToken",
+        "resource": "deal",
+        "operation": "create",
+        "stage": "appointmentscheduled",
+        "dealName": "={{ $node['Generate Proposal HTML'].json.companyName }} - AI Workforce Implementation",
+        "additionalFields": {
+          "amount": "50000",
+          "associatedCompany": [],
+          "associatedContacts": [],
+          "closeDate": "={{ $now.plus({days: 30}).toISO() }}",
+          "description": "=AI Workforce Assessment Details:\n\nCompany: {{ $node['Generate Proposal HTML'].json.companyName }}\nIndustry: {{ $node['Validate Assessment Data'].json.industry }}\nContact: {{ $node['Generate Proposal HTML'].json.contactName }} ({{ $node['Generate Proposal HTML'].json.contactEmail }})\n\nStrategic Priorities:\n{{ $node['Validate Assessment Data'].json.strategicPriorities }}\n\nOperational Bottlenecks:\n{{ $node['Validate Assessment Data'].json.operationalBottlenecks }}\n\nDepartments of Interest:\n{{ $node['Validate Assessment Data'].json.departmentsOfInterest.join(', ') }}\n\nAI Capabilities Requested:\n{{ $node['Validate Assessment Data'].json.aiCapabilities.join(', ') }}\n\nKey Automation Task:\n{{ $node['Validate Assessment Data'].json.automationTask }}\n\nAssessment ID: {{ $node['Generate Proposal HTML'].json.assessmentId }}\nProposal Sent: {{ $now.toISO() }}",
+          "dealType": "newbusiness",
+          "priority": "high"
+        }
+      },
+      "id": "create_hubspot_deal",
+      "name": "Create HubSpot Deal",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2,
+      "position": [
+        1650,
+        300
+      ],
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "hubspot_api",
+          "name": "HubSpot Private App"
+        }
+      },
+      "continueOnFail": true,
+      "notes": "Creates a new deal in HubSpot CRM with all assessment details"
+    },
+    {
+      "parameters": {
+        "resource": "row",
+        "operation": "create",
+        "tableId": "solution_proposals",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "assessment_id",
+              "fieldName": "assessment_id",
+              "fieldValue": "={{ $node['Generate Proposal HTML'].json.assessmentId }}"
+            },
+            {
+              "fieldId": "company_name",
+              "fieldName": "company_name",
+              "fieldValue": "={{ $node['Generate Proposal HTML'].json.companyName }}"
+            },
+            {
+              "fieldId": "contact_email",
+              "fieldName": "contact_email",
+              "fieldValue": "={{ $node['Generate Proposal HTML'].json.contactEmail }}"
+            },
+            {
+              "fieldId": "proposal_content",
+              "fieldName": "proposal_content",
+              "fieldValue": "={{ JSON.stringify($node['Generate Proposal HTML'].json.agentResponse) }}"
+            },
+            {
+              "fieldId": "proposal_status",
+              "fieldName": "proposal_status",
+              "fieldValue": "sent"
+            },
+            {
+              "fieldId": "sent_at",
+              "fieldName": "sent_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            },
+            {
+              "fieldId": "hubspot_deal_id",
+              "fieldName": "hubspot_deal_id",
+              "fieldValue": "={{ $node['Create HubSpot Deal'].json.id || '' }}"
+            }
+          ]
+        }
+      },
+      "id": "save_proposal_to_supabase",
+      "name": "Save Proposal to Supabase",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1850,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "Supabase JeweledTech"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.resend.com/emails",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"from\": \"{{ $env.FROM_EMAIL || 'JeweledTech <admin@jeweledtech.com>' }}\",\n  \"to\": [\"{{ $node['Validate Assessment Data'].json.contactEmail }}\"],\n  \"subject\": \"Your AI Workforce Assessment - {{ $node['Validate Assessment Data'].json.companyName }}\",\n  \"html\": \"<div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>\\n  <h2 style='color: #333;'>Thank you for your assessment!</h2>\\n  \\n  <p>Hi {{ $node['Validate Assessment Data'].json.contactName }},</p>\\n  \\n  <p>We've received your AI workforce assessment for <strong>{{ $node['Validate Assessment Data'].json.companyName }}</strong> and our AI Solutions Architect is analyzing your requirements.</p>\\n  \\n  <h3 style='color: #666;'>What happens next:</h3>\\n  <ol>\\n    <li>Our AI analyzes your specific needs and challenges</li>\\n    <li>We prepare a custom implementation plan</li>\\n    <li>You'll receive a detailed proposal within 24 hours</li>\\n  </ol>\\n  \\n  <p style='background-color: #f5f5f5; padding: 15px; border-left: 4px solid #0066cc;'>\\n    <strong>Your workflow ID:</strong> {{ $node['Solutions Architect Agent'].json.workflow_id || 'Processing' }}<br>\\n    <strong>Status:</strong> {{ $node['Solutions Architect Agent'].json.status || 'In Progress' }}\\n  </p>\\n  \\n  <p>If you have any immediate questions, feel free to reply to this email.</p>\\n  \\n  <p>Best regards,<br>\\n  <strong>The JeweledTech AI Team</strong></p>\\n  \\n  <hr style='margin-top: 40px; border: none; border-top: 1px solid #eee;'>\\n  <p style='font-size: 12px; color: #999;'>Assessment ID: {{ $node['Validate Assessment Data'].json.assessmentId }}</p>\\n</div>\",\n  \"reply_to\": \"{{ $env.REPLY_TO_EMAIL || 'admin@jeweledtech.com' }}\"\n}",
+        "options": {}
+      },
+      "id": "send_followup_resend",
+      "name": "Send Initial Confirmation Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1050,
+        450
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "resend_api",
+          "name": "Resend API"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "functionCode": "// Prepare final response\nconst assessmentData = $node[\"Validate Assessment Data\"].json;\nconst supabaseResult = $node[\"Save to Supabase\"].json;\nconst agentResult = $node[\"Solutions Architect Agent\"].json;\nconst proposalSent = $node[\"Send Proposal Email (Resend)\"].json ? true : false;\nconst hubspotDeal = $node[\"Create HubSpot Deal\"].json;\n\nreturn {\n  success: true,\n  assessmentId: assessmentData.assessmentId,\n  company: assessmentData.companyName,\n  message: \"Assessment received and processed successfully. Proposal has been sent to your email.\",\n  savedToDatabase: true,\n  proposalSent: proposalSent,\n  hubspotDealId: hubspotDeal?.id || null,\n  workflowId: agentResult?.workflow_id,\n  status: agentResult?.status,\n  nextSteps: [\n    'Check your email for the detailed AI workforce proposal',\n    'Review the proposal with your team',\n    'Book a strategy call to discuss implementation',\n    'Receive a custom demo of your AI workforce'\n  ]\n};"
+      },
+      "id": "prepare_response",
+      "name": "Prepare Response",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        2050,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.MONITORING_WEBHOOK_URL || 'https://api.jeweledtech.com/monitoring/workflow-execution' }}",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Workflow-Source",
+              "value": "n8n-assessment"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  execution_id: $node['Start Timer'].json.execution_id,\n  workflow_name: 'assessment_with_pdf_crm',\n  timestamp_start: $node['Start Timer'].json.timestamp_start,\n  timestamp_end: new Date().toISOString(),\n  duration_ms: new Date() - new Date($node['Start Timer'].json.timestamp_start),\n  status: 'completed',\n  assessment_id: $node['Validate Assessment Data'].json.assessmentId,\n  company_name: $node['Validate Assessment Data'].json.companyName,\n  email_sent: true,\n  proposal_sent: $node['Send Proposal Email (Resend)'].json ? true : false,\n  hubspot_deal_created: $node['Create HubSpot Deal'].json ? true : false,\n  crewai_triggered: true,\n  data_saved: true,\n  source_ip: $node['Start Timer'].json.source_ip,\n  user_agent: $node['Start Timer'].json.user_agent\n}) }}",
+        "options": {
+          "timeout": 5000,
+          "retry": {
+            "enabled": true,
+            "maxTries": 2,
+            "waitBetweenTries": 1000
+          },
+          "ignoreHttpStatusErrors": true
+        }
+      },
+      "id": "log_execution",
+      "name": "Log Execution",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2250,
+        300
+      ],
+      "continueOnFail": true,
+      "alwaysOutputData": false
+    }
+  ],
+  "connections": {
+    "Assessment Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Assessment Data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Start Timer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Assessment Data": {
+      "main": [
+        [
+          {
+            "node": "Validate Required Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Required Fields": {
+      "main": [
+        [
+          {
+            "node": "Save to Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Validation Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Supabase": {
+      "main": [
+        [
+          {
+            "node": "Solutions Architect Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Solutions Architect Agent": {
+      "main": [
+        [
+          {
+            "node": "Generate Proposal HTML",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Initial Confirmation Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Proposal HTML": {
+      "main": [
+        [
+          {
+            "node": "Generate PDF (PDFShift)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate PDF (PDFShift)": {
+      "main": [
+        [
+          {
+            "node": "Send Proposal Email (Resend)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Proposal Email (Resend)": {
+      "main": [
+        [
+          {
+            "node": "Create HubSpot Deal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create HubSpot Deal": {
+      "main": [
+        [
+          {
+            "node": "Save Proposal to Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Proposal to Supabase": {
+      "main": [
+        [
+          {
+            "node": "Prepare Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Initial Confirmation Email": {
+      "main": [
+        [
+          {
+            "node": "Prepare Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Response": {
+      "main": [
+        [
+          {
+            "node": "Log Execution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateId": "phase5-assessment-pdf-crm"
+  },
+  "pinData": {}
+}

@@ -1,0 +1,80 @@
+{
+  "name": "Test API Connection",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "test-api",
+        "httpMethod": "GET",
+        "responseMode": "lastNode"
+      },
+      "id": "webhook_test",
+      "name": "Test Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "webhookId": "test-api"
+    },
+    {
+      "parameters": {
+        "url": "https://api.jeweledtech.com/status",
+        "method": "GET",
+        "options": {}
+      },
+      "id": "call_status",
+      "name": "Call API Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const response = $input.all()[0].json;\n\nreturn [{\n  json: {\n    api_connected: true,\n    system_status: response.system_status,\n    architecture: response.architecture,\n    timestamp: response.timestamp,\n    available_departments: response.agents?.available_departments || []\n  }\n}];"
+      },
+      "id": "format_test",
+      "name": "Format Test Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        650,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Test Webhook": {
+      "main": [
+        [
+          {
+            "node": "Call API Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call API Status": {
+      "main": [
+        [
+          {
+            "node": "Format Test Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "instanceId": "test-api-connection"
+  }
+}

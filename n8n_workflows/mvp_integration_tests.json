@@ -1,0 +1,670 @@
+{
+  "name": "MVP Integration Tests",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "test-integrations",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook_test",
+      "name": "Test Integrations Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "integration-tests"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Parse test request\nconst integration = $input.all()[0].json.body.integration;\nconst action = $input.all()[0].json.body.action || 'test';\n\nreturn [{\n  json: {\n    integration: integration,\n    action: action,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "parse_request",
+      "name": "Parse Test Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.integration }}",
+              "operation": "equal",
+              "value2": "gmail"
+            }
+          ]
+        }
+      },
+      "id": "if_gmail",
+      "name": "If Gmail",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 100]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "techintelligencetraining@gmail.com",
+        "subject": "n8n Gmail Integration Test",
+        "messageType": "text",
+        "message": "This is a test email from n8n to verify Gmail integration is working.\n\nTimestamp: {{ $now.toISO() }}\nDepartment: All\nPurpose: MVP Integration Test"
+      },
+      "id": "gmail_send",
+      "name": "Send Test Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [850, 50],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmailOAuth2",
+          "name": "Gmail OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.integration }}",
+              "operation": "equal",
+              "value2": "hubspot"
+            }
+          ]
+        }
+      },
+      "id": "if_hubspot",
+      "name": "If HubSpot",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 200]
+    },
+    {
+      "parameters": {
+        "authentication": "apiKey",
+        "resource": "contact",
+        "operation": "create",
+        "properties": {
+          "property": [
+            {
+              "name": "email",
+              "value": "test-{{ $now.toUnix() }}@n8n-integration.com"
+            },
+            {
+              "name": "firstname",
+              "value": "n8n"
+            },
+            {
+              "name": "lastname",
+              "value": "Integration Test"
+            },
+            {
+              "name": "company",
+              "value": "JeweledTech"
+            }
+          ]
+        }
+      },
+      "id": "hubspot_create",
+      "name": "Create Test Contact",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2,
+      "position": [850, 150],
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "hubspot_private_app",
+          "name": "HubSpot Private App"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.integration }}",
+              "operation": "equal",
+              "value2": "google-calendar"
+            }
+          ]
+        }
+      },
+      "id": "if_calendar",
+      "name": "If Google Calendar",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "event",
+        "operation": "create",
+        "calendar": "primary",
+        "summary": "n8n Integration Test Event",
+        "start": "={{ $now.plus({hours: 1}).toISO() }}",
+        "end": "={{ $now.plus({hours: 2}).toISO() }}",
+        "description": "This is a test event created by n8n to verify Google Calendar integration"
+      },
+      "id": "calendar_create",
+      "name": "Create Test Event",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 2,
+      "position": [850, 250],
+      "credentials": {
+        "googleCalendarOAuth2": {
+          "id": "googleCalendarOAuth2",
+          "name": "Google Calendar OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.integration }}",
+              "operation": "equal",
+              "value2": "github"
+            }
+          ]
+        }
+      },
+      "id": "if_github",
+      "name": "If GitHub",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 400]
+    },
+    {
+      "parameters": {
+        "authentication": "accessToken",
+        "resource": "issue",
+        "operation": "create",
+        "owner": "jeweledtech",
+        "repository": "agentic-system",
+        "title": "n8n Integration Test Issue",
+        "body": "This is a test issue created by n8n to verify GitHub integration.\n\nCreated at: {{ $now.toISO() }}"
+      },
+      "id": "github_create",
+      "name": "Create Test Issue",
+      "type": "n8n-nodes-base.github",
+      "typeVersion": 1,
+      "position": [850, 350],
+      "credentials": {
+        "githubApi": {
+          "id": "githubApi",
+          "name": "GitHub API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.integration }}",
+              "operation": "equal",
+              "value2": "freshdesk"
+            }
+          ]
+        }
+      },
+      "id": "if_freshdesk",
+      "name": "If Freshdesk",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 500]
+    },
+    {
+      "parameters": {
+        "authentication": "apiKey",
+        "resource": "ticket",
+        "operation": "create",
+        "email": "test@n8n-integration.com",
+        "subject": "n8n Integration Test Ticket",
+        "description": "This is a test ticket created by n8n to verify Freshdesk integration",
+        "priority": 1,
+        "status": 2
+      },
+      "id": "freshdesk_create",
+      "name": "Create Test Ticket",
+      "type": "n8n-nodes-base.freshdesk",
+      "typeVersion": 1,
+      "position": [850, 450],
+      "credentials": {
+        "freshdeskApi": {
+          "id": "freshdeskApi",
+          "name": "Freshdesk API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.integration }}",
+              "operation": "equal",
+              "value2": "slack"
+            }
+          ]
+        }
+      },
+      "id": "if_slack",
+      "name": "If Slack",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 600]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "message",
+        "operation": "post",
+        "channel": "#general",
+        "text": "🧪 n8n Integration Test\n\nThis is a test message from n8n to verify Slack integration is working.\n\nTimestamp: {{ $now.toISO() }}"
+      },
+      "id": "slack_post",
+      "name": "Post Test Message",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [850, 550],
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "slackOAuth2Api",
+          "name": "Slack OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.integration }}",
+              "operation": "equal",
+              "value2": "notion"
+            }
+          ]
+        }
+      },
+      "id": "if_notion",
+      "name": "If Notion",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 700]
+    },
+    {
+      "parameters": {
+        "authentication": "apiKey",
+        "resource": "page",
+        "operation": "create",
+        "parent": {
+          "parentType": "database",
+          "databaseId": "{{ $env.NOTION_DB_ID }}"
+        },
+        "properties": {
+          "Name": {
+            "title": [
+              {
+                "text": {
+                  "content": "n8n Integration Test - {{ $now.toISO() }}"
+                }
+              }
+            ]
+          },
+          "Status": {
+            "select": {
+              "name": "Active"
+            }
+          }
+        }
+      },
+      "id": "notion_create",
+      "name": "Create Test Page",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [850, 650],
+      "credentials": {
+        "notionApi": {
+          "id": "notionApi",
+          "name": "Notion API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.integration }}",
+              "operation": "equal",
+              "value2": "supabase"
+            }
+          ]
+        }
+      },
+      "id": "if_supabase",
+      "name": "If Supabase",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 800]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "{{ $env.SUPABASE_URL }}/rest/v1/test_logs",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "{{ $env.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "integration",
+              "value": "n8n"
+            },
+            {
+              "name": "action",
+              "value": "test"
+            },
+            {
+              "name": "timestamp",
+              "value": "={{ $now.toISO() }}"
+            },
+            {
+              "name": "status",
+              "value": "success"
+            }
+          ]
+        }
+      },
+      "id": "supabase_insert",
+      "name": "Insert Test Record",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [850, 750]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Collect all test results\nconst results = [];\nconst input = $input.all();\n\n// Add result based on which integration was tested\nif (input.length > 0) {\n  const integration = $node[\"Parse Test Request\"].json.integration;\n  \n  results.push({\n    integration: integration,\n    status: 'success',\n    timestamp: new Date().toISO(),\n    details: input[0].json\n  });\n}\n\nreturn results;"
+      },
+      "id": "collect_results",
+      "name": "Collect Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 400]
+    }
+  ],
+  "connections": {
+    "Test Integrations Webhook": {
+      "main": [
+        [
+          {
+            "node": "Parse Test Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Test Request": {
+      "main": [
+        [
+          {
+            "node": "If Gmail",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If HubSpot",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If Google Calendar",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If GitHub",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If Freshdesk",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If Slack",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If Notion",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Gmail": {
+      "main": [
+        [
+          {
+            "node": "Send Test Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "If HubSpot": {
+      "main": [
+        [
+          {
+            "node": "Create Test Contact",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "If Google Calendar": {
+      "main": [
+        [
+          {
+            "node": "Create Test Event",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "If GitHub": {
+      "main": [
+        [
+          {
+            "node": "Create Test Issue",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "If Freshdesk": {
+      "main": [
+        [
+          {
+            "node": "Create Test Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "If Slack": {
+      "main": [
+        [
+          {
+            "node": "Post Test Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "If Notion": {
+      "main": [
+        [
+          {
+            "node": "Create Test Page",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "If Supabase": {
+      "main": [
+        [
+          {
+            "node": "Insert Test Record",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Send Test Email": {
+      "main": [
+        [
+          {
+            "node": "Collect Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Test Contact": {
+      "main": [
+        [
+          {
+            "node": "Collect Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Test Event": {
+      "main": [
+        [
+          {
+            "node": "Collect Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Test Issue": {
+      "main": [
+        [
+          {
+            "node": "Collect Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Test Ticket": {
+      "main": [
+        [
+          {
+            "node": "Collect Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post Test Message": {
+      "main": [
+        [
+          {
+            "node": "Collect Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Test Page": {
+      "main": [
+        [
+          {
+            "node": "Collect Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Test Record": {
+      "main": [
+        [
+          {
+            "node": "Collect Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

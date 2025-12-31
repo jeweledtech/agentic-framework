@@ -3,447 +3,1069 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JeweledTech Agentic Framework - Demo</title>
+    <title>JeweledTech Agentic Framework</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f5f5f5;
-            color: #333;
-            line-height: 1.6;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
         }
-        
+
         .container {
-            max-width: 1200px;
+            max-width: 1600px;
             margin: 0 auto;
             padding: 20px;
         }
-        
+
         header {
-            background: #2c3e50;
-            color: white;
-            padding: 2rem 0;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 1.5rem 0;
             margin-bottom: 2rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
-        
-        h1 {
-            text-align: center;
-            font-size: 2.5rem;
-        }
-        
-        .subtitle {
-            text-align: center;
-            opacity: 0.8;
-            margin-top: 0.5rem;
-        }
-        
-        .demo-section {
-            background: white;
-            padding: 2rem;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 2rem;
-        }
-        
-        .tabs {
+
+        .header-content {
             display: flex;
-            gap: 1rem;
-            margin-bottom: 2rem;
-            border-bottom: 2px solid #e0e0e0;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 0 20px;
         }
-        
-        .tab {
-            padding: 0.75rem 1.5rem;
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-size: 1rem;
-            position: relative;
-            transition: all 0.3s;
+
+        h1 {
+            font-size: 1.8rem;
+            background: linear-gradient(135deg, #00d4ff, #7c3aed);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
-        
-        .tab.active {
-            color: #3498db;
-        }
-        
-        .tab.active::after {
-            content: '';
-            position: absolute;
-            bottom: -2px;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background: #3498db;
-        }
-        
-        .tab-content {
-            display: none;
-        }
-        
-        .tab-content.active {
-            display: block;
-        }
-        
-        .input-group {
-            margin-bottom: 1.5rem;
-        }
-        
-        label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 600;
-        }
-        
-        input, textarea, select {
-            width: 100%;
-            padding: 0.75rem;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 1rem;
-        }
-        
-        textarea {
-            min-height: 100px;
-            resize: vertical;
-        }
-        
-        button {
-            background: #3498db;
-            color: white;
-            padding: 0.75rem 2rem;
-            border: none;
-            border-radius: 4px;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-        
-        button:hover {
-            background: #2980b9;
-        }
-        
-        button:disabled {
-            background: #95a5a6;
-            cursor: not-allowed;
-        }
-        
-        .result-box {
-            background: #f8f9fa;
-            padding: 1.5rem;
-            border-radius: 4px;
-            margin-top: 2rem;
-            white-space: pre-wrap;
-            font-family: 'Monaco', 'Consolas', monospace;
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 20px;
             font-size: 0.9rem;
-            max-height: 500px;
-            overflow-y: auto;
         }
-        
-        .loading {
-            text-align: center;
-            padding: 2rem;
-            color: #7f8c8d;
-        }
-        
-        .enterprise-banner {
-            background: #e74c3c;
-            color: white;
-            padding: 1rem;
-            text-align: center;
-            border-radius: 4px;
-            margin-bottom: 2rem;
-        }
-        
-        .enterprise-banner a {
-            color: white;
-            font-weight: bold;
-        }
-        
-        .status-indicator {
-            display: inline-block;
+
+        .status-dot {
             width: 10px;
             height: 10px;
             border-radius: 50%;
-            margin-right: 0.5rem;
+            background: #ef4444;
         }
-        
-        .status-indicator.online {
-            background: #27ae60;
+
+        .status-dot.online {
+            background: #22c55e;
+            animation: pulse 2s infinite;
         }
-        
-        .status-indicator.offline {
-            background: #e74c3c;
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .main-nav {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 0.5rem;
+            border-radius: 12px;
+            flex-wrap: wrap;
+        }
+
+        .nav-btn {
+            padding: 0.75rem 1.5rem;
+            background: transparent;
+            border: none;
+            color: #a0a0a0;
+            cursor: pointer;
+            font-size: 0.95rem;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+
+        .nav-btn:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .nav-btn.active {
+            background: linear-gradient(135deg, #7c3aed, #00d4ff);
+            color: #fff;
+        }
+
+        .panel {
+            display: none;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .panel.active {
+            display: block;
+        }
+
+        .panel-title {
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            color: #fff;
+        }
+
+        /* Org Chart Styles */
+        .org-chart {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem;
+            overflow-x: auto;
+        }
+
+        .org-level {
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+            position: relative;
+            flex-wrap: wrap;
+        }
+
+        .org-node {
+            background: linear-gradient(135deg, rgba(124, 58, 237, 0.3), rgba(0, 212, 255, 0.2));
+            border: 2px solid rgba(124, 58, 237, 0.5);
+            border-radius: 12px;
+            padding: 1.25rem;
+            min-width: 160px;
+            text-align: center;
+            position: relative;
+            transition: all 0.3s;
+        }
+
+        .org-node:hover {
+            transform: translateY(-5px);
+            border-color: #00d4ff;
+            box-shadow: 0 10px 30px rgba(0, 212, 255, 0.3);
+        }
+
+        .org-node.chief {
+            background: linear-gradient(135deg, rgba(234, 179, 8, 0.3), rgba(245, 158, 11, 0.2));
+            border-color: rgba(234, 179, 8, 0.5);
+            min-width: 220px;
+        }
+
+        .org-node.sales {
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.3), rgba(16, 185, 129, 0.2));
+            border-color: rgba(34, 197, 94, 0.5);
+        }
+
+        .org-node.marketing {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(99, 102, 241, 0.2));
+            border-color: rgba(59, 130, 246, 0.5);
+        }
+
+        .org-node.engineering {
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.3), rgba(139, 92, 246, 0.2));
+            border-color: rgba(168, 85, 247, 0.5);
+        }
+
+        .org-node.customer {
+            background: linear-gradient(135deg, rgba(236, 72, 153, 0.3), rgba(219, 39, 119, 0.2));
+            border-color: rgba(236, 72, 153, 0.5);
+        }
+
+        .org-node.backoffice {
+            background: linear-gradient(135deg, rgba(249, 115, 22, 0.3), rgba(234, 88, 12, 0.2));
+            border-color: rgba(249, 115, 22, 0.5);
+        }
+
+        .org-node.security {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.3), rgba(220, 38, 38, 0.2));
+            border-color: rgba(239, 68, 68, 0.5);
+        }
+
+        .node-icon {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+            font-weight: bold;
+        }
+
+        .node-title {
+            font-weight: 600;
+            font-size: 0.95rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .node-dept {
+            font-size: 0.75rem;
+            color: #a0a0a0;
+        }
+
+        .node-tools {
+            font-size: 0.65rem;
+            color: #888;
+            margin-top: 0.5rem;
+            font-style: italic;
+        }
+
+        .connector {
+            position: absolute;
+            width: 2px;
+            height: 25px;
+            background: rgba(255, 255, 255, 0.3);
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .sub-agents {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .sub-agent {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            color: #c0c0c0;
+        }
+
+        /* Agent Cards */
+        .agents-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .agent-card {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: all 0.3s;
+        }
+
+        .agent-card:hover {
+            border-color: rgba(124, 58, 237, 0.5);
+            transform: translateY(-3px);
+        }
+
+        .agent-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .agent-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        .agent-name {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .agent-dept {
+            font-size: 0.85rem;
+            color: #a0a0a0;
+        }
+
+        .agent-description {
+            color: #c0c0c0;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+            line-height: 1.5;
+        }
+
+        .agent-capabilities {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .capability-tag {
+            background: rgba(124, 58, 237, 0.2);
+            border: 1px solid rgba(124, 58, 237, 0.3);
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            color: #c4b5fd;
+        }
+
+        /* Department Filter */
+        .dept-filter {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 0.5rem 1rem;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            color: #a0a0a0;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.3s;
+        }
+
+        .filter-btn:hover, .filter-btn.active {
+            background: rgba(124, 58, 237, 0.3);
+            border-color: rgba(124, 58, 237, 0.5);
+            color: #fff;
+        }
+
+        /* Demo Section */
+        .demo-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        @media (max-width: 900px) {
+            .demo-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .demo-form {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 1.5rem;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #e0e0e0;
+        }
+
+        .form-input, .form-select, .form-textarea {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: #fff;
+            font-size: 0.95rem;
+        }
+
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            outline: none;
+            border-color: #7c3aed;
+        }
+
+        .form-textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, #7c3aed, #00d4ff);
+            border: none;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(124, 58, 237, 0.4);
+        }
+
+        .result-box {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 1.5rem;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .result-box pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 0.85rem;
+            color: #c0c0c0;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #a0a0a0;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(124, 58, 237, 0.3);
+            border-top-color: #7c3aed;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* API Docs Link */
+        .api-docs-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #00d4ff;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+
+        .api-docs-link:hover {
+            background: rgba(0, 212, 255, 0.1);
+            border-color: #00d4ff;
+        }
+
+        .department-section {
+            margin-bottom: 2rem;
+        }
+
+        .department-title {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .workflow-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1rem;
+        }
+
+        .workflow-card {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 1rem;
+        }
+
+        .workflow-name {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .workflow-count {
+            font-size: 0.8rem;
+            color: #a0a0a0;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 1.5rem;
+            border-radius: 12px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, #00d4ff, #7c3aed);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: #a0a0a0;
+            margin-top: 0.25rem;
         }
     </style>
 </head>
 <body>
     <header>
-        <div class="container">
-            <h1>🤖 JeweledTech Agentic Framework</h1>
-            <p class="subtitle">Open-Source Multi-Agent AI System Demo</p>
+        <div class="header-content">
+            <h1>JeweledTech Agentic Framework</h1>
+            <div style="display: flex; gap: 1rem; align-items: center;">
+                <a href="http://localhost:8000/docs" target="_blank" class="api-docs-link">
+                    API Docs
+                </a>
+                <div class="status-badge">
+                    <span class="status-dot" id="status-dot"></span>
+                    <span id="status-text">Checking...</span>
+                </div>
+            </div>
         </div>
     </header>
-    
+
     <div class="container">
-        <div class="enterprise-banner">
-            Need production-ready agents for your business? 
-            <a href="https://jeweledtech.com/enterprise">Explore JeweledTech Enterprise →</a>
+        <!-- Stats Overview -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">7</div>
+                <div class="stat-label">Departments</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">15+</div>
+                <div class="stat-label">AI Agents</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">87</div>
+                <div class="stat-label">n8n Workflows</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">10+</div>
+                <div class="stat-label">Tool Integrations</div>
+            </div>
         </div>
-        
-        <div class="demo-section">
-            <h2>API Status: <span class="status-indicator" id="status"></span><span id="status-text">Checking...</span></h2>
+
+        <nav class="main-nav">
+            <button class="nav-btn active" onclick="showPanel('org-chart')">Org Chart</button>
+            <button class="nav-btn" onclick="showPanel('agents')">All Agents</button>
+            <button class="nav-btn" onclick="showPanel('n8n-workflows')">n8n Workflows</button>
+            <button class="nav-btn" onclick="showPanel('demo')">Try It Out</button>
+        </nav>
+
+        <!-- Org Chart Panel -->
+        <div id="org-chart-panel" class="panel active">
+            <h2 class="panel-title">Complete Agent Organization Chart</h2>
+            <p style="color: #a0a0a0; margin-bottom: 2rem;">
+                7 departments with specialized AI agents and n8n workflow integrations
+            </p>
+            <div class="org-chart">
+                <!-- Chief Agent -->
+                <div class="org-level">
+                    <div class="org-node chief">
+                        <div class="node-icon">[CEO]</div>
+                        <div class="node-title">Chief Executive Agent</div>
+                        <div class="node-dept">Executive / Orchestration</div>
+                        <div class="node-tools">Coordinates all departments</div>
+                        <div class="sub-agents">
+                            <span class="sub-agent">Strategy</span>
+                            <span class="sub-agent">Delegation</span>
+                            <span class="sub-agent">Decisions</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- All 7 Department Heads -->
+                <div class="org-level">
+                    <div class="org-node sales">
+                        <div class="connector"></div>
+                        <div class="node-icon">[S]</div>
+                        <div class="node-title">Sales Department</div>
+                        <div class="node-dept">Revenue Generation</div>
+                        <div class="node-tools">HubSpot, Gmail, Calendar</div>
+                        <div class="sub-agents">
+                            <span class="sub-agent">Inbound Lead</span>
+                            <span class="sub-agent">Outbound</span>
+                            <span class="sub-agent">Outreach</span>
+                            <span class="sub-agent">Qualification</span>
+                        </div>
+                    </div>
+                    <div class="org-node marketing">
+                        <div class="connector"></div>
+                        <div class="node-icon">[M]</div>
+                        <div class="node-title">Marketing Department</div>
+                        <div class="node-dept">Brand & Content</div>
+                        <div class="node-tools">Notion, Resend, Social</div>
+                        <div class="sub-agents">
+                            <span class="sub-agent">Content</span>
+                            <span class="sub-agent">Campaign</span>
+                            <span class="sub-agent">SEO</span>
+                        </div>
+                    </div>
+                    <div class="org-node engineering">
+                        <div class="connector"></div>
+                        <div class="node-icon">[E]</div>
+                        <div class="node-title">Engineering Department</div>
+                        <div class="node-dept">Product & Development</div>
+                        <div class="node-tools">GitHub, Jira</div>
+                        <div class="sub-agents">
+                            <span class="sub-agent">Issue Triage</span>
+                            <span class="sub-agent">Feature</span>
+                            <span class="sub-agent">Bug Fix</span>
+                        </div>
+                    </div>
+                    <div class="org-node customer">
+                        <div class="connector"></div>
+                        <div class="node-icon">[CS]</div>
+                        <div class="node-title">Customer Department</div>
+                        <div class="node-dept">Support & Success</div>
+                        <div class="node-tools">Freshdesk, Slack</div>
+                        <div class="sub-agents">
+                            <span class="sub-agent">Ticket</span>
+                            <span class="sub-agent">Escalation</span>
+                            <span class="sub-agent">Feedback</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Second Row of Departments -->
+                <div class="org-level">
+                    <div class="org-node backoffice">
+                        <div class="connector"></div>
+                        <div class="node-icon">[BO]</div>
+                        <div class="node-title">BackOffice Department</div>
+                        <div class="node-dept">Finance & Admin</div>
+                        <div class="node-tools">Wave, QuickBooks</div>
+                        <div class="sub-agents">
+                            <span class="sub-agent">Invoice</span>
+                            <span class="sub-agent">Billing</span>
+                            <span class="sub-agent">Payments</span>
+                        </div>
+                    </div>
+                    <div class="org-node security">
+                        <div class="connector"></div>
+                        <div class="node-icon">[SEC]</div>
+                        <div class="node-title">Security Department</div>
+                        <div class="node-dept">Threat & Compliance</div>
+                        <div class="node-tools">Wazuh, Slack Alerts</div>
+                        <div class="sub-agents">
+                            <span class="sub-agent">Threat</span>
+                            <span class="sub-agent">Incident</span>
+                            <span class="sub-agent">Audit</span>
+                        </div>
+                    </div>
+                    <div class="org-node" style="background: linear-gradient(135deg, rgba(14, 165, 233, 0.3), rgba(6, 182, 212, 0.2)); border-color: rgba(14, 165, 233, 0.5);">
+                        <div class="connector"></div>
+                        <div class="node-icon">[KB]</div>
+                        <div class="node-title">Knowledge Base</div>
+                        <div class="node-dept">Research & Content</div>
+                        <div class="node-tools">ChromaDB, Embedding</div>
+                        <div class="sub-agents">
+                            <span class="sub-agent">Research</span>
+                            <span class="sub-agent">Writer</span>
+                            <span class="sub-agent">Analyst</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-        
-        <div class="demo-section">
-            <div class="tabs">
-                <button class="tab active" onclick="switchTab('research')">Research Agent</button>
-                <button class="tab" onclick="switchTab('writer')">Writer Agent</button>
-                <button class="tab" onclick="switchTab('collaborate')">Multi-Agent Collaboration</button>
+
+        <!-- Agents Panel -->
+        <div id="agents-panel" class="panel">
+            <h2 class="panel-title">All Available Agents (15+)</h2>
+            <p style="color: #a0a0a0; margin-bottom: 1rem;">
+                Complete list of AI agents across all 7 departments with their capabilities
+            </p>
+
+            <div class="dept-filter">
+                <button class="filter-btn active" onclick="filterAgents('all')">All</button>
+                <button class="filter-btn" onclick="filterAgents('Executive')">Executive</button>
+                <button class="filter-btn" onclick="filterAgents('Sales')">Sales</button>
+                <button class="filter-btn" onclick="filterAgents('Marketing')">Marketing</button>
+                <button class="filter-btn" onclick="filterAgents('Engineering')">Engineering</button>
+                <button class="filter-btn" onclick="filterAgents('Customer')">Customer</button>
+                <button class="filter-btn" onclick="filterAgents('BackOffice')">BackOffice</button>
+                <button class="filter-btn" onclick="filterAgents('Security')">Security</button>
             </div>
-            
-            <!-- Research Tab -->
-            <div id="research-tab" class="tab-content active">
-                <h3>Research Any Topic</h3>
-                <p>Use our Research Agent to gather comprehensive information on any subject.</p>
-                
-                <div class="input-group">
-                    <label for="research-topic">Topic to Research:</label>
-                    <input type="text" id="research-topic" placeholder="e.g., quantum computing, climate change, AI ethics">
-                </div>
-                
-                <div class="input-group">
-                    <label for="research-depth">Depth of Research:</label>
-                    <select id="research-depth">
-                        <option value="basic">Basic</option>
-                        <option value="medium" selected>Medium</option>
-                        <option value="comprehensive">Comprehensive</option>
-                    </select>
-                </div>
-                
-                <button onclick="performResearch()">Start Research</button>
-                
-                <div id="research-result" class="result-box" style="display:none;"></div>
+
+            <div id="agents-grid" class="agents-grid">
+                <!-- Will be populated dynamically -->
             </div>
-            
-            <!-- Writer Tab -->
-            <div id="writer-tab" class="tab-content">
-                <h3>Generate Written Content</h3>
-                <p>Let our Writer Agent create professional content on any topic.</p>
-                
-                <div class="input-group">
-                    <label for="write-topic">Topic:</label>
-                    <input type="text" id="write-topic" placeholder="e.g., The future of remote work">
-                </div>
-                
-                <div class="input-group">
-                    <label for="write-tone">Tone:</label>
-                    <select id="write-tone">
-                        <option value="professional">Professional</option>
-                        <option value="casual">Casual</option>
-                        <option value="technical">Technical</option>
-                        <option value="creative">Creative</option>
-                    </select>
-                </div>
-                
-                <div class="input-group">
-                    <label for="word-count">Word Count:</label>
-                    <input type="number" id="word-count" value="800" min="100" max="2000">
-                </div>
-                
-                <button onclick="generateContent()">Generate Content</button>
-                
-                <div id="write-result" class="result-box" style="display:none;"></div>
+        </div>
+
+        <!-- n8n Workflows Panel -->
+        <div id="n8n-workflows-panel" class="panel">
+            <h2 class="panel-title">n8n Workflow Integration (87 Workflows)</h2>
+            <p style="color: #a0a0a0; margin-bottom: 2rem;">
+                Automated workflows connected via n8n MCP for business process automation
+            </p>
+
+            <div class="department-section">
+                <h3 class="department-title" style="color: #22c55e;">Sales Workflows</h3>
+                <div class="workflow-list" id="sales-workflows"></div>
             </div>
-            
-            <!-- Collaborate Tab -->
-            <div id="collaborate-tab" class="tab-content">
-                <h3>Multi-Agent Collaboration</h3>
-                <p>Watch multiple agents work together to research and create content.</p>
-                
-                <div class="input-group">
-                    <label for="collab-topic">Topic:</label>
-                    <input type="text" id="collab-topic" placeholder="e.g., Blockchain in healthcare">
+
+            <div class="department-section">
+                <h3 class="department-title" style="color: #3b82f6;">Marketing Workflows</h3>
+                <div class="workflow-list" id="marketing-workflows"></div>
+            </div>
+
+            <div class="department-section">
+                <h3 class="department-title" style="color: #a855f7;">Engineering Workflows</h3>
+                <div class="workflow-list" id="engineering-workflows"></div>
+            </div>
+
+            <div class="department-section">
+                <h3 class="department-title" style="color: #ec4899;">Customer Support Workflows</h3>
+                <div class="workflow-list" id="customer-workflows"></div>
+            </div>
+
+            <div class="department-section">
+                <h3 class="department-title" style="color: #f97316;">BackOffice Workflows</h3>
+                <div class="workflow-list" id="backoffice-workflows"></div>
+            </div>
+
+            <div class="department-section">
+                <h3 class="department-title" style="color: #ef4444;">Security Workflows</h3>
+                <div class="workflow-list" id="security-workflows"></div>
+            </div>
+        </div>
+
+        <!-- Demo Panel -->
+        <div id="demo-panel" class="panel">
+            <h2 class="panel-title">Try the Agents</h2>
+            <p style="color: #a0a0a0; margin-bottom: 2rem;">
+                Test the multi-agent system with real requests
+            </p>
+            <div class="demo-grid">
+                <div class="demo-form">
+                    <h3 style="margin-bottom: 1rem;">Research & Write</h3>
+                    <div class="form-group">
+                        <label class="form-label">Topic to Research</label>
+                        <input type="text" class="form-input" id="research-topic" placeholder="e.g., AI in healthcare, quantum computing">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Output Type</label>
+                        <select class="form-select" id="output-type">
+                            <option value="blog_post">Blog Post</option>
+                            <option value="documentation">Technical Documentation</option>
+                            <option value="report">Executive Report</option>
+                        </select>
+                    </div>
+                    <button class="btn" onclick="runCollaboration()">Start Multi-Agent Collaboration</button>
                 </div>
-                
-                <div class="input-group">
-                    <label for="output-type">Output Type:</label>
-                    <select id="output-type">
-                        <option value="blog_post">Blog Post</option>
-                        <option value="documentation">Technical Documentation</option>
-                        <option value="report">Executive Report</option>
-                    </select>
+
+                <div class="result-box">
+                    <div id="demo-result">
+                        <p style="color: #a0a0a0; text-align: center;">Results will appear here...</p>
+                    </div>
                 </div>
-                
-                <button onclick="collaborate()">Start Collaboration</button>
-                
-                <div id="collab-result" class="result-box" style="display:none;"></div>
             </div>
         </div>
     </div>
-    
+
     <script>
         const API_URL = 'http://localhost:8000';
-        
-        // Check API status on load
+
+        // All agents data
+        const allAgents = [
+            // Executive
+            {
+                id: 'chief_agent',
+                name: 'Chief Executive Agent',
+                department: 'Executive',
+                description: 'Central orchestration intelligence that coordinates all department agents, makes strategic decisions, and provides business guidance.',
+                capabilities: ['orchestration', 'strategy', 'delegation', 'decision_support'],
+                color: '#eab308'
+            },
+            // Sales Department
+            {
+                id: 'inbound_sales_manager',
+                name: 'Inbound Sales Manager',
+                department: 'Sales',
+                description: 'Qualifies inbound leads, routes to appropriate reps, and manages the initial engagement process.',
+                capabilities: ['lead_qualification', 'routing', 'icp_matching'],
+                color: '#22c55e'
+            },
+            {
+                id: 'outbound_sales_manager',
+                name: 'Outbound Sales Manager',
+                department: 'Sales',
+                description: 'Manages email campaigns, lead generation, cold outreach sequences, and prospecting activities.',
+                capabilities: ['email_campaigns', 'prospecting', 'cold_outreach'],
+                color: '#22c55e'
+            },
+            {
+                id: 'sales_lead_agent',
+                name: 'Sales Lead Agent',
+                department: 'Sales',
+                description: 'Scores leads against ICP criteria, prioritizes prospects, and manages CRM integration via HubSpot.',
+                capabilities: ['lead_scoring', 'crm_integration', 'prioritization'],
+                color: '#22c55e'
+            },
+            {
+                id: 'outreach_agent',
+                name: 'Outreach Agent',
+                department: 'Sales',
+                description: 'Creates personalized outreach sequences, follow-up emails, and manages engagement tracking.',
+                capabilities: ['email_generation', 'followup_sequences', 'engagement_analysis'],
+                color: '#22c55e'
+            },
+            // Marketing Department
+            {
+                id: 'content_marketing_agent',
+                name: 'Content Marketing Agent',
+                department: 'Marketing',
+                description: 'Generates blog posts, social media content, and email campaigns with SEO optimization.',
+                capabilities: ['blog_creation', 'social_content', 'email_campaigns', 'seo_optimization'],
+                color: '#3b82f6'
+            },
+            {
+                id: 'campaign_agent',
+                name: 'Campaign Agent',
+                department: 'Marketing',
+                description: 'Manages marketing campaigns, analyzes performance, calculates ROI, and suggests optimizations.',
+                capabilities: ['campaign_analysis', 'roi_calculation', 'a_b_testing', 'optimization'],
+                color: '#3b82f6'
+            },
+            // Engineering Department
+            {
+                id: 'engineering_agent',
+                name: 'Engineering Agent',
+                department: 'Engineering',
+                description: 'Triages GitHub issues, manages bug reports, tracks feature requests, and coordinates development.',
+                capabilities: ['issue_triage', 'bug_tracking', 'feature_requests', 'github_integration'],
+                color: '#a855f7'
+            },
+            {
+                id: 'product_agent',
+                name: 'Product Agent',
+                department: 'Engineering',
+                description: 'Manages product roadmap, prioritizes features, and coordinates between stakeholders.',
+                capabilities: ['roadmap_planning', 'feature_prioritization', 'stakeholder_coordination'],
+                color: '#a855f7'
+            },
+            // Customer Department
+            {
+                id: 'customer_support_agent',
+                name: 'Customer Support Agent',
+                department: 'Customer',
+                description: 'Handles Freshdesk tickets, provides support solutions, and manages customer inquiries.',
+                capabilities: ['ticket_handling', 'solution_lookup', 'freshdesk_integration'],
+                color: '#ec4899'
+            },
+            {
+                id: 'escalation_agent',
+                name: 'Escalation Agent',
+                department: 'Customer',
+                description: 'Manages ticket escalations, notifies teams via Slack, and ensures SLA compliance.',
+                capabilities: ['escalation_management', 'slack_alerts', 'sla_tracking'],
+                color: '#ec4899'
+            },
+            // BackOffice Department
+            {
+                id: 'invoice_agent',
+                name: 'Invoice Agent',
+                department: 'BackOffice',
+                description: 'Generates invoices via Wave, tracks payments, and manages billing cycles.',
+                capabilities: ['invoice_generation', 'payment_tracking', 'wave_integration'],
+                color: '#f97316'
+            },
+            {
+                id: 'finance_agent',
+                name: 'Finance Agent',
+                department: 'BackOffice',
+                description: 'Manages financial reporting, expense tracking, and accounting automation.',
+                capabilities: ['financial_reporting', 'expense_tracking', 'reconciliation'],
+                color: '#f97316'
+            },
+            // Security Department
+            {
+                id: 'security_agent',
+                name: 'Security Agent',
+                department: 'Security',
+                description: 'Monitors Wazuh alerts, detects threats, and triggers incident response workflows.',
+                capabilities: ['threat_detection', 'wazuh_integration', 'incident_alerts'],
+                color: '#ef4444'
+            },
+            {
+                id: 'audit_agent',
+                name: 'Audit Agent',
+                department: 'Security',
+                description: 'Performs security audits, compliance checks, and generates security reports.',
+                capabilities: ['audit_logging', 'compliance_checks', 'security_reports'],
+                color: '#ef4444'
+            },
+            // Knowledge Base
+            {
+                id: 'research_agent',
+                name: 'Research Agent',
+                department: 'Knowledge',
+                description: 'Researches topics comprehensively, compiles reports, and provides fact-checked information.',
+                capabilities: ['research_topic', 'compare_topics', 'fact_check'],
+                color: '#0ea5e9'
+            },
+            {
+                id: 'writer_agent',
+                name: 'Writer Agent',
+                department: 'Knowledge',
+                description: 'Creates various types of written content including blog posts, documentation, and emails.',
+                capabilities: ['write_blog_post', 'technical_documentation', 'email_writing'],
+                color: '#0ea5e9'
+            }
+        ];
+
         window.onload = async function() {
             await checkAPIStatus();
+            loadAgents();
+            loadWorkflows();
         };
-        
+
         async function checkAPIStatus() {
             try {
                 const response = await fetch(`${API_URL}/health`);
-                const data = await response.json();
-                
-                document.getElementById('status').classList.add('online');
+                document.getElementById('status-dot').classList.add('online');
                 document.getElementById('status-text').textContent = 'Online';
             } catch (error) {
-                document.getElementById('status').classList.add('offline');
-                document.getElementById('status-text').textContent = 'Offline - Make sure the API server is running';
+                document.getElementById('status-text').textContent = 'Offline';
             }
         }
-        
-        function switchTab(tabName) {
-            // Hide all tabs
-            document.querySelectorAll('.tab-content').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            
-            // Remove active class from all tab buttons
-            document.querySelectorAll('.tab').forEach(button => {
-                button.classList.remove('active');
-            });
-            
-            // Show selected tab
-            document.getElementById(`${tabName}-tab`).classList.add('active');
-            
-            // Add active class to clicked button
+
+        function showPanel(panelName) {
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`${panelName}-panel`).classList.add('active');
             event.target.classList.add('active');
         }
-        
-        async function performResearch() {
+
+        function loadAgents(filter = 'all') {
+            const agentsGrid = document.getElementById('agents-grid');
+            const filtered = filter === 'all' ? allAgents : allAgents.filter(a => a.department === filter);
+
+            agentsGrid.innerHTML = filtered.map(agent => `
+                <div class="agent-card" data-dept="${agent.department}">
+                    <div class="agent-header">
+                        <div class="agent-icon" style="background: linear-gradient(135deg, ${agent.color}, #1a1a2e);">
+                            ${agent.department.charAt(0)}
+                        </div>
+                        <div>
+                            <div class="agent-name">${agent.name}</div>
+                            <div class="agent-dept">${agent.department}</div>
+                        </div>
+                    </div>
+                    <p class="agent-description">${agent.description}</p>
+                    <div class="agent-capabilities">
+                        ${agent.capabilities.map(cap => `<span class="capability-tag">${cap}</span>`).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function filterAgents(dept) {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            loadAgents(dept);
+        }
+
+        function loadWorkflows() {
+            const workflows = {
+                sales: [
+                    { name: 'Sales Department Actions', count: 'HubSpot + Email' },
+                    { name: 'Inbound Sales Manager', count: 'Lead Routing' },
+                    { name: 'Outbound Sales Manager', count: 'Email Sequences' },
+                    { name: 'Lead Processing', count: '3 steps' },
+                    { name: 'ICP Qualification', count: '5 steps' },
+                    { name: 'Proposal Nurturing', count: '28-day sequence' }
+                ],
+                marketing: [
+                    { name: 'Marketing Department', count: 'Content Gen' },
+                    { name: 'Content Distribution', count: '6 channels' },
+                    { name: 'Social Media Posting', count: 'Scheduled' },
+                    { name: 'Email Campaigns', count: 'Automated' },
+                    { name: 'Lead Nurturing', count: '7-step sequence' }
+                ],
+                engineering: [
+                    { name: 'Engineering Department', count: 'GitHub Issues' },
+                    { name: 'Bug Report Handler', count: 'Auto-triage' },
+                    { name: 'Feature Request', count: 'Prioritization' }
+                ],
+                customer: [
+                    { name: 'Customer Department', count: 'Freshdesk' },
+                    { name: 'Ticket Handler', count: 'Auto-response' },
+                    { name: 'Escalation Workflow', count: 'Slack Alerts' }
+                ],
+                backoffice: [
+                    { name: 'BackOffice Department', count: 'Wave/QuickBooks' },
+                    { name: 'Invoice Generator', count: 'Auto-send' },
+                    { name: 'Payment Tracker', count: 'Reminders' }
+                ],
+                security: [
+                    { name: 'Security Department', count: 'Wazuh' },
+                    { name: 'Threat Detection', count: 'Real-time' },
+                    { name: 'Incident Response', count: 'Slack Alerts' }
+                ]
+            };
+
+            Object.keys(workflows).forEach(dept => {
+                const container = document.getElementById(`${dept}-workflows`);
+                if (container) {
+                    container.innerHTML = workflows[dept].map(w => `
+                        <div class="workflow-card">
+                            <div class="workflow-name">${w.name}</div>
+                            <div class="workflow-count">${w.count}</div>
+                        </div>
+                    `).join('');
+                }
+            });
+        }
+
+        async function runCollaboration() {
             const topic = document.getElementById('research-topic').value;
-            const depth = document.getElementById('research-depth').value;
-            
-            if (!topic) {
-                alert('Please enter a topic to research');
-                return;
-            }
-            
-            const resultDiv = document.getElementById('research-result');
-            resultDiv.style.display = 'block';
-            resultDiv.innerHTML = '<div class="loading">🔍 Researching... This may take a moment...</div>';
-            
-            try {
-                const response = await fetch(`${API_URL}/research`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ topic, depth })
-                });
-                
-                const data = await response.json();
-                resultDiv.innerHTML = formatResult(data);
-            } catch (error) {
-                resultDiv.innerHTML = `Error: ${error.message}. Make sure the API server is running.`;
-            }
-        }
-        
-        async function generateContent() {
-            const topic = document.getElementById('write-topic').value;
-            const tone = document.getElementById('write-tone').value;
-            const wordCount = parseInt(document.getElementById('word-count').value);
-            
-            if (!topic) {
-                alert('Please enter a topic');
-                return;
-            }
-            
-            const resultDiv = document.getElementById('write-result');
-            resultDiv.style.display = 'block';
-            resultDiv.innerHTML = '<div class="loading">✍️ Writing... This may take a moment...</div>';
-            
-            try {
-                const response = await fetch(`${API_URL}/write`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ 
-                        topic, 
-                        tone, 
-                        word_count: wordCount 
-                    })
-                });
-                
-                const data = await response.json();
-                resultDiv.innerHTML = formatResult(data);
-            } catch (error) {
-                resultDiv.innerHTML = `Error: ${error.message}. Make sure the API server is running.`;
-            }
-        }
-        
-        async function collaborate() {
-            const topic = document.getElementById('collab-topic').value;
             const outputType = document.getElementById('output-type').value;
-            
+
             if (!topic) {
                 alert('Please enter a topic');
                 return;
             }
-            
-            const resultDiv = document.getElementById('collab-result');
-            resultDiv.style.display = 'block';
-            resultDiv.innerHTML = '<div class="loading">🤝 Agents collaborating... This may take a moment...</div>';
-            
+
+            const resultDiv = document.getElementById('demo-result');
+            resultDiv.innerHTML = `
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    <p>Agents collaborating on "${topic}"...</p>
+                    <p style="font-size: 0.8rem; margin-top: 0.5rem;">Research Agent -> Writer Agent</p>
+                </div>
+            `;
+
             try {
                 const response = await fetch(`${API_URL}/collaborate`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ 
-                        topic, 
-                        output_type: outputType 
-                    })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ topic, output_type: outputType })
                 });
-                
+
                 const data = await response.json();
-                resultDiv.innerHTML = formatCollaborationResult(data);
+                resultDiv.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
             } catch (error) {
-                resultDiv.innerHTML = `Error: ${error.message}. Make sure the API server is running.`;
+                resultDiv.innerHTML = `<p style="color: #ef4444;">Error: ${error.message}</p>`;
             }
-        }
-        
-        function formatResult(data) {
-            if (data.result && typeof data.result === 'object') {
-                return JSON.stringify(data.result, null, 2);
-            }
-            return data.result || JSON.stringify(data, null, 2);
-        }
-        
-        function formatCollaborationResult(data) {
-            let output = `🤝 Collaboration Complete!\\n\\n`;
-            output += `Topic: ${data.topic}\\n`;
-            output += `Output Type: ${data.output_type}\\n`;
-            output += `Agents Involved: ${data.agents_involved.join(', ')}\\n\\n`;
-            
-            output += `--- Research Phase ---\\n`;
-            output += JSON.stringify(data.research_phase, null, 2) + '\\n\\n';
-            
-            output += `--- Writing Phase ---\\n`;
-            output += JSON.stringify(data.writing_phase, null, 2) + '\\n\\n';
-            
-            if (data.enterprise_note) {
-                output += `\\n💡 ${data.enterprise_note}`;
-            }
-            
-            return output;
         }
     </script>
 </body>

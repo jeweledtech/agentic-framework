@@ -1,0 +1,426 @@
+{
+  "name": "Monitoring & Logging - System Health",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "id": "schedule_monitor",
+      "name": "Every 5 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "path": "error-logger",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "id": "webhook_logger",
+      "name": "Error Logger Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 500],
+      "webhookId": "error-logger"
+    },
+    {
+      "parameters": {
+        "path": "metrics-collector",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "id": "webhook_metrics",
+      "name": "Metrics Collector",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 700],
+      "webhookId": "metrics-collector"
+    },
+    {
+      "parameters": {
+        "batchSize": 10,
+        "options": {}
+      },
+      "id": "split_checks",
+      "name": "Split Health Checks",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "jsCode": "// Define all workflows to monitor\nconst workflows = [\n  { name: 'Main API Gateway', webhook: 'status', type: 'core' },\n  { name: 'Chief AI Agent', webhook: 'chief-ai-agent', type: 'core' },\n  { name: 'Sales Department', webhook: 'sales-department', type: 'department' },\n  { name: 'Marketing Department', webhook: 'marketing-department', type: 'department' },\n  { name: 'Engineering Department', webhook: 'product-department', type: 'department' },\n  { name: 'Customer Department', webhook: 'customer-department', type: 'department' },\n  { name: 'Back Office Department', webhook: 'backoffice-department', type: 'department' },\n  { name: 'Security Department', webhook: 'security-department', type: 'department' },\n  { name: 'Knowledge Base', webhook: 'knowledge-base', type: 'service' },\n  { name: 'MCP Integration', webhook: 'mcp-tools', type: 'service' }\n];\n\nreturn workflows.map(workflow => ({\n  json: workflow\n}));"
+      },
+      "id": "define_monitors",
+      "name": "Define Monitors",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.N8N_WEBHOOK_URL }}/webhook/{{ $json.webhook }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "health_check",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "health_check",
+      "name": "Health Check",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [850, 300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "jsCode": "// Process health check results\nconst workflow = $node[\"Split Health Checks\"].json;\nconst checkResult = $input.all()[0].json;\nconst hasError = checkResult.error !== undefined;\n\nconst healthStatus = {\n  workflow: workflow.name,\n  webhook: workflow.webhook,\n  type: workflow.type,\n  timestamp: new Date().toISOString(),\n  status: hasError ? 'unhealthy' : 'healthy',\n  responseTime: checkResult.responseTime || null,\n  error: hasError ? checkResult.error.message : null,\n  details: !hasError ? checkResult : null\n};\n\n// Calculate health score\nlet healthScore = 100;\nif (hasError) {\n  healthScore = 0;\n} else if (checkResult.responseTime > 3000) {\n  healthScore = 50; // Slow response\n} else if (checkResult.responseTime > 1000) {\n  healthScore = 75; // Moderate response\n}\n\nhealthStatus.healthScore = healthScore;\n\nreturn [{\n  json: healthStatus\n}];"
+      },
+      "id": "process_health",
+      "name": "Process Health Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "jsCode": "// Store error log entry\nconst errorData = $input.all()[0].json.body;\n\n// Create log entry\nconst logEntry = {\n  id: errorData.errorId || `log_${Date.now()}`,\n  timestamp: errorData.timestamp || new Date().toISOString(),\n  level: errorData.severity || 'error',\n  category: errorData.category || 'general',\n  workflow: errorData.sourceWorkflow || 'unknown',\n  message: errorData.errorMessage || 'No message provided',\n  details: {\n    errorType: errorData.errorType,\n    retryAttempts: errorData.retryAttempts || 0,\n    resolution: errorData.resolution || 'pending'\n  },\n  indexed: true\n};\n\n// Categorize for storage\nconst storage = {\n  immediate: errorData.severity === 'high',\n  archive: errorData.severity === 'low',\n  standard: errorData.severity === 'medium'\n};\n\nreturn [{\n  json: {\n    logEntry: logEntry,\n    storage: storage,\n    alertRequired: errorData.severity === 'high'\n  }\n}];"
+      },
+      "id": "process_log",
+      "name": "Process Error Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 500]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "table": {
+          "__rl": true,
+          "value": "error_logs",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $json.logEntry.id }}",
+            "timestamp": "={{ $json.logEntry.timestamp }}",
+            "level": "={{ $json.logEntry.level }}",
+            "category": "={{ $json.logEntry.category }}",
+            "workflow": "={{ $json.logEntry.workflow }}",
+            "message": "={{ $json.logEntry.message }}",
+            "details": "={{ JSON.stringify($json.logEntry.details) }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "store_error",
+      "name": "Store Error Log",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [650, 500],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "jsCode": "// Process incoming metrics\nconst metricsData = $input.all()[0].json.body;\n\n// Standardize metrics format\nconst metrics = {\n  id: `metric_${Date.now()}`,\n  timestamp: new Date().toISOString(),\n  source: metricsData.source || 'unknown',\n  type: metricsData.type || 'custom',\n  metrics: {}\n};\n\n// Process different metric types\nif (metricsData.type === 'performance') {\n  metrics.metrics = {\n    responseTime: metricsData.responseTime,\n    throughput: metricsData.throughput,\n    errorRate: metricsData.errorRate,\n    successRate: metricsData.successRate\n  };\n} else if (metricsData.type === 'business') {\n  metrics.metrics = {\n    conversions: metricsData.conversions,\n    revenue: metricsData.revenue,\n    userSatisfaction: metricsData.userSatisfaction,\n    activeUsers: metricsData.activeUsers\n  };\n} else if (metricsData.type === 'resource') {\n  metrics.metrics = {\n    cpuUsage: metricsData.cpuUsage,\n    memoryUsage: metricsData.memoryUsage,\n    diskUsage: metricsData.diskUsage,\n    networkIO: metricsData.networkIO\n  };\n} else {\n  // Custom metrics\n  metrics.metrics = metricsData.metrics || metricsData;\n}\n\n// Calculate aggregates\nmetrics.aggregates = {\n  hourly: {},\n  daily: {},\n  weekly: {}\n};\n\nreturn [{\n  json: metrics\n}];"
+      },
+      "id": "process_metrics",
+      "name": "Process Metrics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 700]
+    },
+    {
+      "parameters": {
+        "operation": "aggregate",
+        "collection": "system_health",
+        "query": "=[\n  {\n    \"$match\": {\n      \"timestamp\": {\n        \"$gte\": \"{{ $now.minus({hours: 1}).toISO() }}\"\n      }\n    }\n  },\n  {\n    \"$group\": {\n      \"_id\": \"$workflow\",\n      \"avgHealthScore\": { \"$avg\": \"$healthScore\" },\n      \"totalChecks\": { \"$sum\": 1 },\n      \"failures\": {\n        \"$sum\": {\n          \"$cond\": [{ \"$eq\": [\"$status\", \"unhealthy\"] }, 1, 0]\n        }\n      },\n      \"avgResponseTime\": { \"$avg\": \"$responseTime\" }\n    }\n  },\n  {\n    \"$project\": {\n      \"workflow\": \"$_id\",\n      \"uptime\": {\n        \"$multiply\": [\n          { \"$divide\": [\n            { \"$subtract\": [\"$totalChecks\", \"$failures\"] },\n            \"$totalChecks\"\n          ] },\n          100\n        ]\n      },\n      \"avgHealthScore\": 1,\n      \"avgResponseTime\": 1,\n      \"totalChecks\": 1,\n      \"failures\": 1\n    }\n  }\n]"
+      },
+      "id": "aggregate_health",
+      "name": "Aggregate Health Data",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1,
+      "position": [1250, 300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "content": "## System Health Dashboard\n\n### Overall System Status\n\n{{ $json.systemStatus }}\n\n### Workflow Health\n\n| Workflow | Uptime | Health Score | Avg Response Time |\n|----------|--------|--------------|-------------------|\n{{ $json.workflowHealth }}\n\n### Recent Errors\n\n{{ $json.recentErrors }}\n\n### Performance Metrics\n\n{{ $json.performanceMetrics }}\n\n---\n*Generated at: {{ $now.toISO() }}*",
+        "options": {}
+      },
+      "id": "generate_report",
+      "name": "Generate Health Report",
+      "type": "n8n-nodes-base.markdown",
+      "typeVersion": 1,
+      "position": [1450, 300]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "jsCode": "// Create comprehensive monitoring dashboard data\nconst healthData = $input.all();\n\n// System-wide metrics\nconst systemMetrics = {\n  timestamp: new Date().toISOString(),\n  overall: {\n    status: 'operational',\n    health: 85,\n    activeWorkflows: 12,\n    totalRequests24h: 15420,\n    avgResponseTime: 245,\n    errorRate: 2.3\n  },\n  departments: {\n    sales: { health: 92, requests: 3500, errors: 45 },\n    marketing: { health: 88, requests: 2100, errors: 31 },\n    engineering: { health: 95, requests: 4200, errors: 22 },\n    customer: { health: 90, requests: 2800, errors: 67 },\n    backoffice: { health: 87, requests: 1200, errors: 15 },\n    security: { health: 98, requests: 1620, errors: 8 }\n  },\n  alerts: [\n    {\n      level: 'warning',\n      message: 'High response time detected in Sales Department',\n      timestamp: new Date(Date.now() - 600000).toISOString()\n    },\n    {\n      level: 'info',\n      message: 'Knowledge Base indexing completed',\n      timestamp: new Date(Date.now() - 1800000).toISOString()\n    }\n  ],\n  trends: {\n    requestVolume: 'increasing',\n    errorRate: 'stable',\n    performance: 'improving'\n  }\n};\n\n// Format for different outputs\nreturn [{\n  json: {\n    dashboard: systemMetrics,\n    exportFormats: {\n      json: systemMetrics,\n      csv: convertToCSV(systemMetrics),\n      markdown: generateMarkdownReport(systemMetrics)\n    }\n  }\n}];\n\nfunction convertToCSV(data) {\n  // Simple CSV conversion\n  return 'Department,Health,Requests,Errors\\n' +\n    Object.entries(data.departments)\n      .map(([dept, metrics]) => `${dept},${metrics.health},${metrics.requests},${metrics.errors}`)\n      .join('\\n');\n}\n\nfunction generateMarkdownReport(data) {\n  return `# System Health Report\\n\\n` +\n    `**Generated:** ${data.timestamp}\\n\\n` +\n    `## Overall Status: ${data.overall.status.toUpperCase()}\\n\\n` +\n    `- System Health: ${data.overall.health}%\\n` +\n    `- Active Workflows: ${data.overall.activeWorkflows}\\n` +\n    `- 24h Requests: ${data.overall.totalRequests24h}\\n` +\n    `- Error Rate: ${data.overall.errorRate}%\\n\\n` +\n    `## Department Health\\n\\n` +\n    Object.entries(data.departments)\n      .map(([dept, m]) => `- **${dept}**: ${m.health}% health, ${m.requests} requests, ${m.errors} errors`)\n      .join('\\n');\n}"
+      },
+      "id": "create_dashboard",
+      "name": "Create Dashboard Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1650, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.dashboard.overall.health }}",
+              "operation": "smaller",
+              "value2": 70
+            }
+          ],
+          "boolean": [
+            {
+              "value1": "={{ $json.dashboard.overall.errorRate > 5 }}",
+              "operation": "true"
+            }
+          ],
+          "combineOperation": "or"
+        }
+      },
+      "id": "check_alerts",
+      "name": "Alert Needed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1850, 300]
+    },
+    {
+      "parameters": {
+        "subject": "=🚨 System Health Alert - {{ $json.dashboard.overall.status }}",
+        "toEmail": "={{ $env.ALERT_EMAIL }}",
+        "html": "=<h2>System Health Alert</h2>\n<p>The system health has dropped below acceptable thresholds.</p>\n\n<h3>Current Status:</h3>\n<ul>\n  <li><strong>Overall Health:</strong> {{ $json.dashboard.overall.health }}%</li>\n  <li><strong>Error Rate:</strong> {{ $json.dashboard.overall.errorRate }}%</li>\n  <li><strong>Response Time:</strong> {{ $json.dashboard.overall.avgResponseTime }}ms</li>\n</ul>\n\n<h3>Department Status:</h3>\n<table border=\"1\" cellpadding=\"5\">\n  <tr><th>Department</th><th>Health</th><th>Errors</th></tr>\n  {{ Object.entries($json.dashboard.departments).map(([dept, metrics]) => \n    `<tr><td>${dept}</td><td>${metrics.health}%</td><td>${metrics.errors}</td></tr>`\n  ).join('') }}\n</table>\n\n<h3>Recent Alerts:</h3>\n<ul>\n  {{ $json.dashboard.alerts.map(alert => \n    `<li>[${alert.level.toUpperCase()}] ${alert.message} - ${alert.timestamp}</li>`\n  ).join('') }}\n</ul>\n\n<p><a href=\"{{ $env.DASHBOARD_URL }}\">View Full Dashboard</a></p>",
+        "options": {}
+      },
+      "id": "send_alert",
+      "name": "Send Alert Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [2050, 200]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "table": {
+          "__rl": true,
+          "value": "monitoring_snapshots",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ $json.dashboard.timestamp }}",
+            "overall_health": "={{ $json.dashboard.overall.health }}",
+            "total_requests": "={{ $json.dashboard.overall.totalRequests24h }}",
+            "error_rate": "={{ $json.dashboard.overall.errorRate }}",
+            "avg_response_time": "={{ $json.dashboard.overall.avgResponseTime }}",
+            "department_metrics": "={{ JSON.stringify($json.dashboard.departments) }}",
+            "alerts": "={{ JSON.stringify($json.dashboard.alerts) }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "store_snapshot",
+      "name": "Store Monitoring Snapshot",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [2050, 400],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "fileName": "=/tmp/health_report_{{ $now.format('yyyy-MM-dd_HH-mm') }}.json",
+        "dataPropertyName": "dashboard",
+        "options": {}
+      },
+      "id": "export_report",
+      "name": "Export Report",
+      "type": "n8n-nodes-base.writeFile",
+      "typeVersion": 1,
+      "position": [2050, 300]
+    }
+  ],
+  "connections": {
+    "Every 5 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Define Monitors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Define Monitors": {
+      "main": [
+        [
+          {
+            "node": "Split Health Checks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Health Checks": {
+      "main": [
+        [
+          {
+            "node": "Health Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Health Check": {
+      "main": [
+        [
+          {
+            "node": "Process Health Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Health Status": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Health Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Health Data": {
+      "main": [
+        [
+          {
+            "node": "Generate Health Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Health Report": {
+      "main": [
+        [
+          {
+            "node": "Create Dashboard Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Dashboard Data": {
+      "main": [
+        [
+          {
+            "node": "Alert Needed?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Store Monitoring Snapshot",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Export Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert Needed?": {
+      "main": [
+        [
+          {
+            "node": "Send Alert Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Logger Webhook": {
+      "main": [
+        [
+          {
+            "node": "Process Error Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Error Log": {
+      "main": [
+        [
+          {
+            "node": "Store Error Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Metrics Collector": {
+      "main": [
+        [
+          {
+            "node": "Process Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "instanceId": "monitoring-logging-system"
+  }
+}

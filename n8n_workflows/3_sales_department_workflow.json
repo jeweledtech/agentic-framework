@@ -1,0 +1,200 @@
+{
+  "name": "Sales Department - Action Executor",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "sales-actions",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook",
+      "name": "Sales Actions Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "sales-actions"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Parse the CrewAI response\nconst input = $input.all()[0].json.body;\nconst actions = input.actions || [];\nconst context = input.context || {};\n\n// CrewAI has already made all decisions\n// We just execute what it tells us to do\nreturn [{\n  json: {\n    actions: actions,\n    context: context,\n    department: 'sales',\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "parse_actions",
+      "name": "Parse CrewAI Actions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "actions",
+        "options": {}
+      },
+      "id": "split_actions",
+      "name": "Split Actions",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "hubspot-check",
+              "leftValue": "={{ $json.type }}",
+              "rightValue": "hubspot_contact",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if_hubspot",
+      "name": "If HubSpot",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [850, 200]
+    },
+    {
+      "parameters": {
+        "authentication": "appToken",
+        "resource": "contact",
+        "operation": "upsert",
+        "email": "={{ $json.parameters.email }}",
+        "additionalFields": {
+          "firstName": "={{ $json.parameters.firstName }}",
+          "lastName": "={{ $json.parameters.lastName }}",
+          "leadStatus": "={{ $json.parameters.leadStatus || 'NEW' }}",
+          "lifecycleStage": "={{ $json.parameters.lifecycleStage || 'lead' }}"
+        }
+      },
+      "id": "hubspot_create",
+      "name": "Create HubSpot Contact",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2,
+      "position": [1050, 150],
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "hubspot_private_app",
+          "name": "HubSpot Private App"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "email-check",
+              "leftValue": "={{ $json.type }}",
+              "rightValue": "send_email",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if_email",
+      "name": "If Email",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [850, 400]
+    },
+    {
+      "parameters": {
+        "fromEmail": "sales@jeweledtech.com",
+        "toEmail": "={{ $json.parameters.to }}",
+        "subject": "={{ $json.parameters.subject }}",
+        "emailFormat": "html",
+        "html": "={{ $json.parameters.body }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "send_email",
+      "name": "Send Email (SMTP)",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1050, 350],
+      "credentials": {
+        "smtp": {
+          "id": "smtp_gmail",
+          "name": "SMTP Gmail"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Collect all action results\nconst results = [];\nconst allItems = $input.all();\n\nfor (const item of allItems) {\n  if (item.json.success !== undefined) {\n    results.push({\n      action: item.json.actionType,\n      success: item.json.success,\n      data: item.json\n    });\n  }\n}\n\nreturn [{\n  json: {\n    department: 'sales',\n    actionsExecuted: results.length,\n    results: results,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "collect_results",
+      "name": "Collect Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1250, 300]
+    }
+  ],
+  "connections": {
+    "Sales Actions Webhook": {
+      "main": [[{"node": "Parse CrewAI Actions", "type": "main", "index": 0}]]
+    },
+    "Parse CrewAI Actions": {
+      "main": [[{"node": "Split Actions", "type": "main", "index": 0}]]
+    },
+    "Split Actions": {
+      "main": [
+        [
+          {"node": "If HubSpot", "type": "main", "index": 0},
+          {"node": "If Email", "type": "main", "index": 0}
+        ]
+      ]
+    },
+    "If HubSpot": {
+      "main": [
+        [{"node": "Create HubSpot Contact", "type": "main", "index": 0}],
+        [{"node": "Collect Results", "type": "main", "index": 0}]
+      ]
+    },
+    "If Email": {
+      "main": [
+        [{"node": "Send Email (SMTP)", "type": "main", "index": 0}],
+        [{"node": "Collect Results", "type": "main", "index": 0}]
+      ]
+    },
+    "Create HubSpot Contact": {
+      "main": [[{"node": "Collect Results", "type": "main", "index": 0}]]
+    },
+    "Send Email (SMTP)": {
+      "main": [[{"node": "Collect Results", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "instanceId": "sales-department-smtp"
+  }
+}

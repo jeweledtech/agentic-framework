@@ -1,0 +1,416 @@
+{
+  "departments": {
+    "sales": {
+      "name": "Sales Department",
+      "agents": [
+        "Head of Sales",
+        "Outbound Sales Manager",
+        "Inbound Sales Manager",
+        "Sales Analytics",
+        "CRM Manager"
+      ],
+      "integrations": {
+        "mvp": {
+          "email": {
+            "service": "Gmail SMTP",
+            "cost": "Free",
+            "variables": ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD"],
+            "features": ["Send emails", "Email templates", "Bulk sending"]
+          },
+          "crm": {
+            "service": "HubSpot Free",
+            "cost": "Free (up to 1M contacts)",
+            "variables": ["HUBSPOT_API_KEY", "HUBSPOT_PORTAL_ID"],
+            "features": ["Contact management", "Deal tracking", "Basic automation"]
+          },
+          "calendar": {
+            "service": "Google Calendar",
+            "cost": "Free",
+            "variables": ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REFRESH_TOKEN"],
+            "features": ["Schedule meetings", "Calendar sync", "Availability check"]
+          }
+        },
+        "premium": {
+          "crm": {
+            "service": "Salesforce",
+            "cost": "$25-300/user/month",
+            "variables": ["SALESFORCE_CLIENT_ID", "SALESFORCE_CLIENT_SECRET", "SALESFORCE_INSTANCE_URL"],
+            "features": ["Advanced automation", "AI insights", "Custom objects"]
+          },
+          "engagement": {
+            "service": "Outreach.io",
+            "cost": "$100+/user/month",
+            "variables": ["OUTREACH_API_KEY", "OUTREACH_API_URL"],
+            "features": ["Sequence automation", "AI coaching", "Analytics"]
+          }
+        }
+      }
+    },
+    "marketing": {
+      "name": "Marketing Department",
+      "agents": [
+        "Head of Marketing",
+        "Content Manager",
+        "Social Media Manager",
+        "Brand Manager",
+        "Campaign Manager",
+        "Marketing Analyst",
+        "Video Content Manager"
+      ],
+      "integrations": {
+        "mvp": {
+          "social_media": {
+            "service": "Buffer Free",
+            "cost": "Free (3 social accounts)",
+            "variables": ["BUFFER_ACCESS_TOKEN", "BUFFER_PROFILE_IDS"],
+            "features": ["Schedule posts", "Basic analytics", "Multi-platform"]
+          },
+          "analytics": {
+            "service": "Google Analytics",
+            "cost": "Free",
+            "variables": ["GA_TRACKING_ID", "GA_VIEW_ID", "GA_API_KEY"],
+            "features": ["Web analytics", "Conversion tracking", "Audience insights"]
+          },
+          "content": {
+            "service": "WordPress.com Free",
+            "cost": "Free",
+            "variables": ["WORDPRESS_API_KEY", "WORDPRESS_SITE_URL"],
+            "features": ["Blog management", "SEO basics", "Content scheduling"]
+          },
+          "email_marketing": {
+            "service": "Mailchimp Free",
+            "cost": "Free (up to 500 contacts)",
+            "variables": ["MAILCHIMP_API_KEY", "MAILCHIMP_SERVER_PREFIX", "MAILCHIMP_LIST_ID"],
+            "features": ["Email campaigns", "Basic automation", "Templates"]
+          }
+        },
+        "premium": {
+          "marketing_automation": {
+            "service": "HubSpot Marketing Hub",
+            "cost": "$45-3200/month",
+            "variables": ["HUBSPOT_MARKETING_API_KEY"],
+            "features": ["Advanced workflows", "Lead scoring", "Attribution"]
+          },
+          "seo": {
+            "service": "SEMrush",
+            "cost": "$120-450/month",
+            "variables": ["SEMRUSH_API_KEY"],
+            "features": ["Keyword research", "Competitor analysis", "Site audit"]
+          }
+        }
+      }
+    },
+    "engineering": {
+      "name": "Product/Engineering Department",
+      "agents": [
+        "Head of Product",
+        "Product Manager",
+        "Frontend Lead",
+        "Backend Lead",
+        "QA Lead",
+        "DevOps Lead",
+        "Technical Architect",
+        "AI Software Architect",
+        "AI Backend Developer",
+        "AI Frontend Developer",
+        "AI DevOps Engineer"
+      ],
+      "integrations": {
+        "mvp": {
+          "version_control": {
+            "service": "GitHub",
+            "cost": "Free (public repos)",
+            "variables": ["GITHUB_TOKEN", "GITHUB_ORG", "GITHUB_WEBHOOK_SECRET"],
+            "features": ["Code repos", "Issues", "Actions CI/CD", "Code review"]
+          },
+          "monitoring": {
+            "service": "Uptime Kuma",
+            "cost": "Free (self-hosted)",
+            "variables": ["UPTIME_KUMA_URL", "UPTIME_KUMA_API_KEY"],
+            "features": ["Uptime monitoring", "Status pages", "Notifications"]
+          },
+          "error_tracking": {
+            "service": "Sentry Free",
+            "cost": "Free (5k events/month)",
+            "variables": ["SENTRY_DSN", "SENTRY_ORG", "SENTRY_PROJECT"],
+            "features": ["Error tracking", "Performance monitoring", "Release tracking"]
+          }
+        },
+        "premium": {
+          "project_management": {
+            "service": "Jira",
+            "cost": "$7.75/user/month",
+            "variables": ["JIRA_URL", "JIRA_EMAIL", "JIRA_API_TOKEN"],
+            "features": ["Agile boards", "Roadmaps", "Advanced reporting"]
+          },
+          "apm": {
+            "service": "Datadog",
+            "cost": "$15+/host/month",
+            "variables": ["DATADOG_API_KEY", "DATADOG_APP_KEY"],
+            "features": ["Full-stack monitoring", "APM", "Log management"]
+          }
+        }
+      }
+    },
+    "customer": {
+      "name": "Customer Support Department",
+      "agents": [
+        "Head of Customer",
+        "Customer Success Manager",
+        "Support Lead",
+        "Feedback Analyst",
+        "Retention Specialist",
+        "Education Manager",
+        "Community Manager",
+        "Onboarding Specialist"
+      ],
+      "integrations": {
+        "mvp": {
+          "helpdesk": {
+            "service": "Freshdesk Free",
+            "cost": "Free (unlimited agents)",
+            "variables": ["FRESHDESK_DOMAIN", "FRESHDESK_API_KEY"],
+            "features": ["Ticket management", "Knowledge base", "Basic automation"]
+          },
+          "live_chat": {
+            "service": "Tawk.to",
+            "cost": "Free",
+            "variables": ["TAWK_TO_PROPERTY_ID", "TAWK_TO_WIDGET_ID"],
+            "features": ["Live chat", "Visitor monitoring", "Chat history"]
+          },
+          "knowledge_base": {
+            "service": "GitBook Free",
+            "cost": "Free (public spaces)",
+            "variables": ["GITBOOK_API_TOKEN", "GITBOOK_SPACE_ID"],
+            "features": ["Documentation", "Version control", "Search"]
+          },
+          "feedback": {
+            "service": "Typeform Free",
+            "cost": "Free (10 responses/month)",
+            "variables": ["TYPEFORM_API_KEY", "TYPEFORM_WORKSPACE_ID"],
+            "features": ["Surveys", "Forms", "Basic analytics"]
+          }
+        },
+        "premium": {
+          "helpdesk": {
+            "service": "Zendesk",
+            "cost": "$19-99/agent/month",
+            "variables": ["ZENDESK_SUBDOMAIN", "ZENDESK_EMAIL", "ZENDESK_API_TOKEN"],
+            "features": ["Omnichannel support", "AI assistance", "Advanced analytics"]
+          },
+          "customer_success": {
+            "service": "Gainsight",
+            "cost": "Custom pricing",
+            "variables": ["GAINSIGHT_API_KEY", "GAINSIGHT_COMPANY_ID"],
+            "features": ["Health scores", "Success plans", "Revenue intelligence"]
+          }
+        }
+      }
+    },
+    "back_office": {
+      "name": "Back Office Department",
+      "agents": [
+        "Head of Back Office",
+        "Finance Manager",
+        "Payroll Manager",
+        "Accounting Lead",
+        "Billing Specialist",
+        "Compliance Officer",
+        "HR Manager",
+        "Grant Specialist"
+      ],
+      "integrations": {
+        "mvp": {
+          "accounting": {
+            "service": "Wave Accounting",
+            "cost": "Free",
+            "variables": ["WAVE_API_KEY", "WAVE_BUSINESS_ID"],
+            "features": ["Invoicing", "Expense tracking", "Financial reports"]
+          },
+          "invoicing": {
+            "service": "Invoice Ninja",
+            "cost": "Free (self-hosted)",
+            "variables": ["INVOICE_NINJA_URL", "INVOICE_NINJA_API_KEY"],
+            "features": ["Invoice creation", "Payment processing", "Client portal"]
+          },
+          "hr_payroll": {
+            "service": "Notion",
+            "cost": "Free (personal)",
+            "variables": ["NOTION_API_KEY", "NOTION_HR_DATABASE_ID", "NOTION_PAYROLL_DATABASE_ID"],
+            "features": ["Employee database", "Document management", "Process workflows"]
+          },
+          "document_storage": {
+            "service": "Google Drive",
+            "cost": "Free (15GB)",
+            "variables": ["GOOGLE_DRIVE_API_KEY", "GOOGLE_DRIVE_FOLDER_ID"],
+            "features": ["File storage", "Sharing", "Version control"]
+          }
+        },
+        "premium": {
+          "erp": {
+            "service": "NetSuite",
+            "cost": "Custom pricing ($999+/month)",
+            "variables": ["NETSUITE_ACCOUNT_ID", "NETSUITE_CONSUMER_KEY", "NETSUITE_CONSUMER_SECRET"],
+            "features": ["Full ERP", "Financial management", "Supply chain"]
+          }
+        }
+      }
+    },
+    "security": {
+      "name": "Security Department",
+      "agents": [
+        "Head of Security",
+        "SOC Manager",
+        "Compliance Lead",
+        "LLM Security Specialist",
+        "Threat Intelligence Analyst",
+        "Risk Analyst",
+        "Policy Manager",
+        "Penetration Testing Lead",
+        "IAM Specialist",
+        "Incident Response Agent",
+        "Audit Manager",
+        "Business Continuity Agent"
+      ],
+      "integrations": {
+        "mvp": {
+          "siem": {
+            "service": "Wazuh",
+            "cost": "Free (Open Source)",
+            "variables": ["WAZUH_API_URL", "WAZUH_API_USER", "WAZUH_API_PASSWORD"],
+            "features": ["Log analysis", "Threat detection", "Compliance monitoring", "Incident response"]
+          },
+          "vulnerability_scanning": {
+            "service": "OWASP ZAP",
+            "cost": "Free (Open Source)",
+            "variables": ["ZAP_API_KEY", "ZAP_API_URL", "ZAP_PROXY_PORT"],
+            "features": ["Web app scanning", "API testing", "Automated security testing"]
+          },
+          "network_scanning": {
+            "service": "OpenVAS",
+            "cost": "Free (Open Source)",
+            "variables": ["OPENVAS_HOST", "OPENVAS_PORT", "OPENVAS_USER", "OPENVAS_PASSWORD"],
+            "features": ["Network vulnerability scanning", "Configuration audit", "Compliance checks"]
+          },
+          "container_security": {
+            "service": "Trivy",
+            "cost": "Free (Open Source)",
+            "variables": ["TRIVY_SERVER_URL", "TRIVY_API_TOKEN"],
+            "features": ["Container scanning", "Vulnerability database", "License scanning"]
+          },
+          "cloud_security": {
+            "service": "Prowler",
+            "cost": "Free (Open Source)",
+            "variables": ["PROWLER_AWS_ACCESS_KEY", "PROWLER_AWS_SECRET_KEY"],
+            "features": ["Cloud security assessment", "CIS benchmarks", "Best practices audit"]
+          },
+          "secrets_detection": {
+            "service": "Gitleaks",
+            "cost": "Free (Open Source)",
+            "variables": ["GITLEAKS_CONFIG_PATH", "GITLEAKS_REPORT_PATH"],
+            "features": ["Secret scanning", "Pre-commit hooks", "CI/CD integration"]
+          },
+          "llm_security": {
+            "service": "Garak",
+            "cost": "Free (Open Source)",
+            "variables": ["GARAK_API_ENDPOINT", "GARAK_MODEL_PATH"],
+            "features": ["LLM vulnerability scanning", "Prompt injection detection", "Model testing"]
+          },
+          "ai_defense": {
+            "service": "NB Defense",
+            "cost": "Free tier available",
+            "variables": ["NBDEFENSE_API_KEY", "NBDEFENSE_SCAN_PATH"],
+            "features": ["AI vulnerability scanning", "PII detection", "Model security"]
+          }
+        },
+        "premium": {
+          "siem": {
+            "service": "Splunk",
+            "cost": "Custom pricing",
+            "variables": ["SPLUNK_HOST", "SPLUNK_TOKEN"],
+            "features": ["Enterprise SIEM", "Advanced analytics", "Machine learning"]
+          },
+          "edr": {
+            "service": "CrowdStrike",
+            "cost": "$8+/endpoint/month",
+            "variables": ["CROWDSTRIKE_CLIENT_ID", "CROWDSTRIKE_CLIENT_SECRET"],
+            "features": ["Endpoint detection", "Threat hunting", "Incident response"]
+          }
+        }
+      }
+    },
+    "admin": {
+      "name": "Admin Department",
+      "agents": [
+        "Head of Admin",
+        "Executive Assistant Manager",
+        "Scheduling Agent"
+      ],
+      "integrations": {
+        "mvp": {
+          "communication": {
+            "service": "Slack Free",
+            "cost": "Free",
+            "variables": ["SLACK_BOT_TOKEN", "SLACK_APP_TOKEN", "SLACK_WEBHOOK_URL"],
+            "features": ["Team messaging", "Channels", "Basic integrations"]
+          },
+          "document_management": {
+            "service": "Google Workspace",
+            "cost": "$6/user/month",
+            "variables": ["GOOGLE_WORKSPACE_DOMAIN", "GOOGLE_WORKSPACE_ADMIN_EMAIL"],
+            "features": ["Docs", "Sheets", "Drive", "Calendar"]
+          },
+          "scheduling": {
+            "service": "Calendly Free",
+            "cost": "Free (basic)",
+            "variables": ["CALENDLY_API_KEY", "CALENDLY_WEBHOOK_TOKEN"],
+            "features": ["Meeting scheduling", "Calendar sync", "Basic automation"]
+          }
+        },
+        "premium": {
+          "communication": {
+            "service": "Microsoft Teams",
+            "cost": "$4-22/user/month",
+            "variables": ["TEAMS_TENANT_ID", "TEAMS_CLIENT_ID", "TEAMS_CLIENT_SECRET"],
+            "features": ["Video conferencing", "Advanced collaboration", "Enterprise security"]
+          }
+        }
+      }
+    }
+  },
+  "integration_priorities": {
+    "phase_1_mvp": [
+      "Gmail SMTP",
+      "HubSpot Free",
+      "Google Calendar",
+      "GitHub",
+      "Freshdesk Free",
+      "Wave Accounting",
+      "Wazuh",
+      "OWASP ZAP"
+    ],
+    "phase_2_growth": [
+      "Buffer",
+      "Mailchimp",
+      "Sentry",
+      "Invoice Ninja",
+      "Trivy",
+      "Prowler"
+    ],
+    "phase_3_scale": [
+      "Salesforce",
+      "HubSpot Marketing Hub",
+      "Jira",
+      "Zendesk",
+      "NetSuite",
+      "Splunk"
+    ]
+  },
+  "total_mvp_cost": "$6/user/month (Google Workspace only)",
+  "notes": {
+    "security": "All security tools listed are open source and free",
+    "scalability": "Start with free tiers and upgrade as you grow",
+    "integration_effort": "Most integrations can be set up in 1-2 hours each",
+    "maintenance": "Budget 2-4 hours/month for integration maintenance"
+  }
+}

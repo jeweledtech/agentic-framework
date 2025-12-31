@@ -1,0 +1,252 @@
+{
+  "name": "Phase 5: Assessment with PDF Generation & CRM (Fixed Data Flow V9)",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "new-assessment",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "id": "webhook_assessment",
+      "name": "Assessment Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "new-client-assessment"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Extract and validate assessment data from webhook body\nconst data = $json.body;\n\n// Helper function to ensure arrays are properly formatted for Supabase\nfunction ensureArray(value, defaultValue = []) {\n  if (Array.isArray(value)) {\n    return value.length > 0 ? value : defaultValue;\n  }\n  if (value === null || value === undefined || value === '') {\n    return defaultValue;\n  }\n  // If it's a string, try to parse as JSON or wrap in array\n  if (typeof value === 'string') {\n    if (value.trim() === '') return defaultValue;\n    try {\n      const parsed = JSON.parse(value);\n      return Array.isArray(parsed) ? parsed : [value];\n    } catch {\n      return [value];\n    }\n  }\n  return [value];\n}\n\nconst assessmentData = {\n  // Map to workflow_assessments table structure\n  name: data.name || data.contact_name || '',\n  email: data.email || data.contact_email || '',\n  phone: data.phone || data.contact_phone || '',\n  industry: data.vertical || data.industry || '',\n  company_size: data.company_size || '',\n  role: 'Decision Maker', // Default role\n  department: data.departments_of_interest?.join(', ') || 'General',\n  current_process: data.strategic_priorities || '',\n  pain_points: data.operational_bottlenecks || '',\n  tools: `CRM: ${data.crm_platforms?.[0] || 'None'}, Communication: ${data.communication_platforms?.join(', ') || 'None'}, PM: ${data.project_management_platforms?.[0] || 'None'}`,\n  outsourcing_interest: data.ai_capabilities?.join(', ') || 'AI Automation',\n  \n  // Keep original data for proposal generation\n  companyName: data.company_name || '',\n  contactName: data.name || '',\n  contactEmail: data.email || '',\n  contactPhone: data.phone || '',\n  companyDescription: data.company_description || '',\n  strategicPriorities: data.strategic_priorities || '',\n  operationalBottlenecks: data.operational_bottlenecks || '',\n  departmentsOfInterest: ensureArray(data.departments_of_interest, ['General']),\n  crmPlatform: data.crm_platforms?.[0] || '',\n  communicationPlatforms: ensureArray(data.communication_platforms, []),\n  projectManagement: data.project_management_platforms?.[0] || '',\n  knowledgeBaseStatus: data.knowledge_base_status || '',\n  apiExperience: data.api_experience || '',\n  aiCapabilities: ensureArray(data.ai_capabilities, []),\n  automationTask: data.key_automation_task || '',\n  assessmentId: data.assessment_id,\n  submittedAt: data.submitted_at || new Date().toISOString(),\n  source: 'jeweledtech.com/input-form'\n};\n\nreturn assessmentData;"
+      },
+      "id": "validate_data",
+      "name": "Validate Assessment Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "resource": "row",
+        "operation": "create",
+        "tableId": "workflow_assessments",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "name",
+              "fieldValue": "={{ $json.name }}"
+            },
+            {
+              "fieldId": "email",
+              "fieldValue": "={{ $json.email }}"
+            },
+            {
+              "fieldId": "phone",
+              "fieldValue": "={{ $json.phone }}"
+            },
+            {
+              "fieldId": "industry",
+              "fieldValue": "={{ $json.industry }}"
+            },
+            {
+              "fieldId": "company_size",
+              "fieldValue": "={{ $json.company_size }}"
+            },
+            {
+              "fieldId": "role",
+              "fieldValue": "={{ $json.role }}"
+            },
+            {
+              "fieldId": "department",
+              "fieldValue": "={{ $json.department }}"
+            },
+            {
+              "fieldId": "current_process",
+              "fieldValue": "={{ $json.current_process }}"
+            },
+            {
+              "fieldId": "pain_points",
+              "fieldValue": "={{ $json.pain_points }}"
+            },
+            {
+              "fieldId": "tools",
+              "fieldValue": "={{ $json.tools }}"
+            },
+            {
+              "fieldId": "outsourcing_interest",
+              "fieldValue": "={{ $json.outsourcing_interest }}"
+            }
+          ]
+        }
+      },
+      "id": "save_to_supabase",
+      "name": "Save to Supabase",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [650, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-production",
+          "name": "Supabase Production"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "functionCode": "// Generate detailed AI workforce proposal using assessment data\nconst assessment = $node['Validate Assessment Data'].json;\n\nconst proposalHTML = `\n<!DOCTYPE html>\n<html>\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>AI Workforce Proposal - ${assessment.companyName}</title>\n    <style>\n        * { margin: 0; padding: 0; box-sizing: border-box; }\n        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; background: #f8f9fa; }\n        .container { max-width: 800px; margin: 0 auto; background: white; box-shadow: 0 0 20px rgba(0,0,0,0.1); }\n        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px 30px; text-align: center; }\n        .header h1 { font-size: 2.5rem; margin-bottom: 10px; font-weight: 700; }\n        .header p { font-size: 1.2rem; opacity: 0.9; }\n        .content { padding: 40px 30px; }\n        .section { margin-bottom: 40px; }\n        .section h2 { color: #667eea; font-size: 1.8rem; margin-bottom: 20px; border-bottom: 3px solid #667eea; padding-bottom: 10px; }\n        .section h3 { color: #555; font-size: 1.4rem; margin: 25px 0 15px; }\n        .highlight-box { background: #f8f9ff; border-left: 5px solid #667eea; padding: 20px; margin: 20px 0; border-radius: 0 8px 8px 0; }\n        .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 30px 0; }\n        .metric { background: #667eea; color: white; padding: 20px; border-radius: 8px; text-align: center; }\n        .metric h4 { font-size: 2rem; margin-bottom: 5px; }\n        .metric p { opacity: 0.9; }\n        .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 25px; margin: 30px 0; }\n        .feature { background: #fff; border: 2px solid #e9ecef; border-radius: 8px; padding: 25px; transition: all 0.3s ease; }\n        .feature:hover { border-color: #667eea; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(102, 126, 234, 0.1); }\n        .feature h4 { color: #667eea; margin-bottom: 15px; font-size: 1.3rem; }\n        .timeline { position: relative; padding-left: 30px; }\n        .timeline::before { content: ''; position: absolute; left: 15px; top: 0; bottom: 0; width: 2px; background: #667eea; }\n        .timeline-item { position: relative; margin-bottom: 30px; }\n        .timeline-item::before { content: ''; position: absolute; left: -37px; top: 5px; width: 12px; height: 12px; border-radius: 50%; background: #667eea; }\n        .timeline-item h4 { color: #667eea; margin-bottom: 10px; }\n        .cta-section { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px; text-align: center; border-radius: 8px; margin: 40px 0; }\n        .cta-section h3 { font-size: 1.8rem; margin-bottom: 15px; }\n        .cta-button { display: inline-block; background: white; color: #667eea; padding: 15px 30px; border-radius: 25px; text-decoration: none; font-weight: bold; margin: 20px 10px; transition: all 0.3s ease; }\n        .cta-button:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.2); }\n        .footer { text-align: center; padding: 30px; background: #f8f9fa; color: #666; }\n        ul { margin: 15px 0; padding-left: 20px; }\n        li { margin: 8px 0; }\n        .roi-calculation { background: #e8f5e8; border: 2px solid #28a745; border-radius: 8px; padding: 25px; margin: 25px 0; }\n        .roi-calculation h4 { color: #28a745; margin-bottom: 15px; font-size: 1.4rem; }\n    </style>\n</head>\n<body>\n    <div class=\"container\">\n        <header class=\"header\">\n            <h1>AI Workforce Proposal</h1>\n            <p>Transforming ${assessment.companyName} with Intelligent Automation</p>\n        </header>\n        \n        <div class=\"content\">\n            <!-- Executive Summary -->\n            <section class=\"section\">\n                <h2>Executive Summary</h2>\n                <div class=\"highlight-box\">\n                    <p><strong>Company:</strong> ${assessment.companyName}</p>\n                    <p><strong>Industry:</strong> ${assessment.industry}</p>\n                    <p><strong>Assessment Date:</strong> ${new Date().toLocaleDateString()}</p>\n                    <p><strong>Proposal ID:</strong> ${assessment.assessmentId}</p>\n                </div>\n                \n                <p>Based on your comprehensive AI workforce assessment, we've identified significant opportunities to transform ${assessment.companyName}'s operations through strategic automation and AI implementation.</p>\n                \n                <div class=\"highlight-box\">\n                    <h4>Key Challenge Identified:</h4>\n                    <p>${assessment.strategicPriorities}</p>\n                </div>\n                \n                <div class=\"highlight-box\">\n                    <h4>Current Operational Bottlenecks:</h4>\n                    <p>${assessment.operationalBottlenecks}</p>\n                </div>\n            </section>\n\n            <!-- Proposed AI Workforce Solutions -->\n            <section class=\"section\">\n                <h2>Proposed AI Workforce Solutions</h2>\n                \n                <p>Based on your interest in <strong>${assessment.departmentsOfInterest.join(', ')}</strong> departments, we recommend the following AI workforce implementation:</p>\n                \n                <div class=\"feature-grid\">\n                    ${assessment.aiCapabilities.map(capability => `\n                        <div class=\"feature\">\n                            <h4>${capability}</h4>\n                            <p>Automated ${capability.toLowerCase()} system integrated with your ${assessment.crmPlatform} platform.</p>\n                        </div>\n                    `).join('')}\n                </div>\n                \n                <h3>Primary Automation Focus</h3>\n                <div class=\"highlight-box\">\n                    <h4>Key Automation Task:</h4>\n                    <p>${assessment.automationTask}</p>\n                </div>\n            </section>\n\n            <!-- Technical Integration -->\n            <section class=\"section\">\n                <h2>Technical Integration Plan</h2>\n                \n                <h3>Current Technology Stack</h3>\n                <ul>\n                    <li><strong>CRM Platform:</strong> ${assessment.crmPlatform}</li>\n                    <li><strong>Communication:</strong> ${assessment.communicationPlatforms.join(', ')}</li>\n                    <li><strong>Project Management:</strong> ${assessment.projectManagement}</li>\n                    <li><strong>API Experience:</strong> ${assessment.apiExperience}</li>\n                    <li><strong>Knowledge Base:</strong> ${assessment.knowledgeBaseStatus}</li>\n                </ul>\n                \n                <h3>Integration Approach</h3>\n                <p>Leveraging your existing ${assessment.crmPlatform} platform and ${assessment.apiExperience} API experience, we'll implement seamless integrations that enhance rather than replace your current workflow.</p>\n            </section>\n\n            <!-- Implementation Timeline -->\n            <section class=\"section\">\n                <h2>Implementation Timeline</h2>\n                \n                <div class=\"timeline\">\n                    <div class=\"timeline-item\">\n                        <h4>Week 1-2: Discovery & Planning</h4>\n                        <p>Deep-dive analysis of your ${assessment.crmPlatform} setup and workflow mapping for ${assessment.departmentsOfInterest.join(', ')} departments.</p>\n                    </div>\n                    \n                    <div class=\"timeline-item\">\n                        <h4>Week 3-4: Core AI Development</h4>\n                        <p>Development of ${assessment.aiCapabilities.slice(0, 2).join(' and ')} systems tailored to your specific requirements.</p>\n                    </div>\n                    \n                    <div class=\"timeline-item\">\n                        <h4>Week 5-6: Integration & Testing</h4>\n                        <p>Integration with ${assessment.crmPlatform} and ${assessment.communicationPlatforms.join(', ')}, with comprehensive testing.</p>\n                    </div>\n                    \n                    <div class=\"timeline-item\">\n                        <h4>Week 7-8: Deployment & Training</h4>\n                        <p>Live deployment with team training and knowledge transfer.</p>\n                    </div>\n                </div>\n            </section>\n\n            <!-- ROI Projections -->\n            <section class=\"section\">\n                <h2>Expected ROI & Benefits</h2>\n                \n                <div class=\"metrics\">\n                    <div class=\"metric\">\n                        <h4>60%</h4>\n                        <p>Reduction in manual tasks</p>\n                    </div>\n                    <div class=\"metric\">\n                        <h4>40%</h4>\n                        <p>Faster response times</p>\n                    </div>\n                    <div class=\"metric\">\n                        <h4>30%</h4>\n                        <p>Improved conversion rates</p>\n                    </div>\n                    <div class=\"metric\">\n                        <h4>25%</h4>\n                        <p>Cost savings in first year</p>\n                    </div>\n                </div>\n                \n                <div class=\"roi-calculation\">\n                    <h4>Projected Annual Savings</h4>\n                    <p>Based on your ${assessment.company_size} company size and current operational bottlenecks, we project annual savings of <strong>$150,000 - $300,000</strong> through automated ${assessment.automationTask.toLowerCase()}.</p>\n                </div>\n            </section>\n\n            <!-- Next Steps -->\n            <div class=\"cta-section\">\n                <h3>Ready to Transform Your Workflow?</h3>\n                <p>Let's discuss how this AI workforce can revolutionize ${assessment.companyName}'s operations.</p>\n                \n                <a href=\"https://calendly.com/jeweledtech/ai-strategy-call\" class=\"cta-button\">Book Strategy Call</a>\n                <a href=\"mailto:${assessment.contactEmail}?subject=AI Workforce Proposal Follow-up\" class=\"cta-button\">Request Demo</a>\n            </div>\n        </div>\n        \n        <footer class=\"footer\">\n            <p>This proposal was generated specifically for ${assessment.companyName} based on your assessment responses.</p>\n            <p>Questions? Contact us at strategy@jeweledtech.com or call (555) 123-AI-TECH</p>\n        </footer>\n    </div>\n</body>\n</html>\n`;\n\n// Generate simple UUID without crypto module (n8n compatible)\nconst timestamp = Date.now().toString(36);\nconst randomStr = Math.random().toString(36).substring(2, 15);\nconst simpleUuid = `${timestamp}-${randomStr}-${Math.random().toString(36).substring(2, 15)}`;\n\n// Return the data for next nodes\nreturn {\n  json: {\n    proposalHTML: proposalHTML,\n    assessmentId: assessment.assessmentId,\n    analysisId: simpleUuid,\n    companyName: assessment.companyName,\n    contactEmail: assessment.contactEmail,\n    contactName: assessment.contactName,\n    industry: assessment.industry\n  }\n};"
+      },
+      "id": "generate_proposal_html",
+      "name": "Generate Proposal HTML",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "resource": "row",
+        "operation": "create",
+        "tableId": "solution_proposals",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "assessment_id",
+              "fieldValue": "={{ $json.assessmentId }}"
+            },
+            {
+              "fieldId": "analysis_id",
+              "fieldValue": "={{ $json.analysisId }}"
+            },
+            {
+              "fieldId": "challenge_mapping",
+              "fieldValue": "{\"primary_challenge\": \"Process automation\", \"secondary_challenges\": [\"Manual workflows\", \"Data integration\"]}"
+            },
+            {
+              "fieldId": "recommended_agents",
+              "fieldValue": "[\"Workflow Automation Agent\", \"Data Integration Agent\", \"Customer Communication Agent\"]"
+            },
+            {
+              "fieldId": "integration_tools",
+              "fieldValue": "{\"crm\": \"HubSpot\", \"communication\": \"Slack\", \"project_management\": \"Jira\"}"
+            },
+            {
+              "fieldId": "ai_capabilities_priority",
+              "fieldValue": "{\"high\": [\"Process Automation\"], \"medium\": [\"Data Analysis\"], \"low\": [\"Reporting\"]}"
+            },
+            {
+              "fieldId": "company_name",
+              "fieldValue": "={{ $json.companyName }}"
+            },
+            {
+              "fieldId": "contact_email",
+              "fieldValue": "={{ $json.contactEmail }}"
+            },
+            {
+              "fieldId": "contact_name",
+              "fieldValue": "={{ $json.contactName }}"
+            },
+            {
+              "fieldId": "proposal_html",
+              "fieldValue": "={{ $json.proposalHTML }}"
+            },
+            {
+              "fieldId": "proposal_status",
+              "fieldValue": "generated"
+            }
+          ]
+        }
+      },
+      "id": "save_proposal_to_supabase",
+      "name": "Save Proposal to Supabase",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1050, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-production",
+          "name": "Supabase Production"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "responseBody": "={{ JSON.stringify({\n  success: true,\n  message: 'AI workforce proposal generated and saved successfully',\n  assessmentId: $node['Generate Proposal HTML'].json.assessmentId,\n  companyName: $node['Generate Proposal HTML'].json.companyName,\n  proposalSaved: $node['Save Proposal to Supabase'].json ? true : false,\n  nextSteps: [\n    'Your proposal has been saved to the system',\n    'Check your email for the detailed proposal PDF',\n    'Book a strategy call to discuss implementation',\n    'Request a custom demo of your AI workforce'\n  ]\n}) }}"
+      },
+      "id": "final_response",
+      "name": "Final Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1250, 300]
+    }
+  ],
+  "connections": {
+    "Assessment Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Assessment Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Assessment Data": {
+      "main": [
+        [
+          {
+            "node": "Save to Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Supabase": {
+      "main": [
+        [
+          {
+            "node": "Generate Proposal HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Proposal HTML": {
+      "main": [
+        [
+          {
+            "node": "Save Proposal to Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Proposal to Supabase": {
+      "main": [
+        [
+          {
+            "node": "Final Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateId": "phase5-assessment-pdf-crm-fixed-v9"
+  },
+  "pinData": {}
+}

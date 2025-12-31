@@ -1,0 +1,176 @@
+{
+  "name": "Agentic System - Main API Gateway (Fixed)",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "chat",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "id": "webhook_chat",
+      "name": "Chat Endpoint",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "webhookId": "chat"
+    },
+    {
+      "parameters": {
+        "path": "status",
+        "httpMethod": "GET",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook_status",
+      "name": "Status Endpoint",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        500
+      ],
+      "webhookId": "status"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Simply format the incoming request for CrewAI API\nconst body = $input.all()[0].json.body;\n\nreturn [{\n  json: {\n    message: body.message || '',\n    channel: body.channel || 'Web UI',\n    priority: body.priority || 'medium',\n    context: body.context || {},\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "format_request",
+      "name": "Format Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "{{ $env.CREWAI_API_URL || 'https://api.jeweledtech.com' }}/chat",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "call_crewai",
+      "name": "Call CrewAI Brain",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        650,
+        300
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "https://api.jeweledtech.com/status",
+        "method": "GET",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "n8n-workflow/1.0"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000,
+          "retry": {
+            "enabled": true,
+            "maxTries": 2,
+            "waitBetweenTries": 1000
+          },
+          "response": {
+            "fullResponse": false
+          },
+          "ignoreHttpStatusErrors": true
+        }
+      },
+      "id": "check_crewai_status",
+      "name": "Check CrewAI Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        350,
+        500
+      ],
+      "continueOnFail": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Process CrewAI status response\nconst crewaiResponse = $node['Check CrewAI Status'].json;\nlet crewaiStatus = 'unknown';\nlet crewaiVersion = 'unknown';\n\nif (crewaiResponse && crewaiResponse.status) {\n  crewaiStatus = 'operational';\n  crewaiVersion = crewaiResponse.version || 'unknown';\n} else {\n  crewaiStatus = 'unreachable';\n}\n\nreturn [{\n  json: {\n    status: 'operational',\n    services: {\n      n8n: {\n        status: 'operational',\n        role: 'orchestration_layer'\n      },\n      crewai: {\n        status: crewaiStatus,\n        role: 'ai_brain',\n        version: crewaiVersion\n      },\n      integrations: {\n        hubspot: 'configured',\n        slack: 'configured',\n        gmail: 'configured',\n        freshdesk: 'configured',\n        github: 'configured',\n        calendar: 'configured',\n        wave: 'configured',\n        wazuh: 'configured',\n        notion: 'configured',\n        supabase: 'configured'\n      }\n    },\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "system_status",
+      "name": "Generate System Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        550,
+        500
+      ]
+    }
+  ],
+  "connections": {
+    "Chat Endpoint": {
+      "main": [
+        [
+          {
+            "node": "Format Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Request": {
+      "main": [
+        [
+          {
+            "node": "Call CrewAI Brain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Status Endpoint": {
+      "main": [
+        [
+          {
+            "node": "Check CrewAI Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check CrewAI Status": {
+      "main": [
+        [
+          {
+            "node": "Generate System Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

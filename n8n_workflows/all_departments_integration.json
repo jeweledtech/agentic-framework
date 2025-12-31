@@ -1,0 +1,1008 @@
+{
+  "name": "All Departments - Tool Integration Hub (Complete)",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "integrated-chat",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook_main",
+      "name": "Integrated Chat Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        400
+      ],
+      "webhookId": "integrated-chat"
+    },
+    {
+      "parameters": {
+        "url": "https://api.jeweledtech.com/chat",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "message",
+              "value": "={{ $json.body.message }}"
+            },
+            {
+              "name": "channel",
+              "value": "Integrated System"
+            }
+          ]
+        }
+      },
+      "id": "call_agent_api",
+      "name": "Call Agent API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        450,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Parse the agent's response - handle both old and new formats\nconst agentResponse = $input.all()[0].json;\nconst department = agentResponse.department || 'executive';\nconst agentText = agentResponse.text || '';\nconst originalMessage = $node[\"Integrated Chat Webhook\"].json.body.message || '';\n\n// Log for debugging\nconsole.log('Agent Response:', JSON.stringify(agentResponse));\nconsole.log('Original Message:', originalMessage);\n\n// The agent should return which actions to take\n// For now, we'll parse the response to detect action keywords\n// In the future, the API should return a structured 'actions' array\nconst actions = [];\n\n// Parse agent response for action indicators\nif (agentResponse.actions && Array.isArray(agentResponse.actions)) {\n  // If the agent API returns structured actions, use them\n  actions.push(...agentResponse.actions);\n} else {\n  // Fallback: parse the text response for action keywords\n  const combinedText = agentText + ' ' + originalMessage;\n  \n  if (combinedText.match(/create.*contact|new.*contact|new.*lead|add.*crm|contact.*for/i)) {\n    actions.push({ type: 'hubspot_contact', department: department });\n  }\n  if (combinedText.match(/schedule.*meeting|book.*demo|calendar/i)) {\n    actions.push({ type: 'google_calendar', department: department });\n  }\n  if (combinedText.match(/send.*email|email.*campaign/i)) {\n    actions.push({ type: 'gmail_send', department: department });\n  }\n  if (combinedText.match(/ticket|support.*issue|help.*request/i)) {\n    actions.push({ type: 'freshdesk_ticket', department: department });\n  }\n  if (combinedText.match(/notify.*team|alert.*support/i)) {\n    actions.push({ type: 'slack_notify', department: department });\n  }\n  if (combinedText.match(/create.*issue|bug.*report|feature.*request/i)) {\n    actions.push({ type: 'github_issue', department: department });\n  }\n  if (combinedText.match(/invoice|billing|payment/i)) {\n    actions.push({ type: 'wave_invoice', department: department });\n  }\n  if (combinedText.match(/security.*alert|threat.*detected|incident/i)) {\n    actions.push({ type: 'wazuh_alert', department: department });\n    actions.push({ type: 'slack_notify', department: department });\n  }\n  if (combinedText.match(/update.*knowledge|document|notion/i)) {\n    actions.push({ type: 'notion_update', department: department });\n  }\n}\n\n// Always log to Supabase\nactions.push({ type: 'supabase_log', department: department });\n\n// Return formatted data for n8n to execute\nreturn [{\n  json: {\n    department: department,\n    agent_response: agentText,\n    actions: actions,\n    original_message: originalMessage\n  }\n}];"
+      },
+      "id": "detect_actions",
+      "name": "Detect Required Actions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        650,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.actions.some(a => a.type === 'hubspot_contact') }}",
+              "operation": "equal",
+              "value2": "true"
+            }
+          ]
+        }
+      },
+      "id": "if_hubspot",
+      "name": "If HubSpot",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        850,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "apiKey",
+        "resource": "contact",
+        "operation": "upsert",
+        "email": "{{ $json.original_message.match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\\.[a-zA-Z0-9_-]+)/gi)?.[0] || 'ai-generated-' + $now.toUnix() + '@jeweledtech.com' }}",
+        "additionalFields": {
+          "firstName": "{{ $json.original_message.match(/(?:create.*contact.*for|new.*lead.*named?)\\s+([A-Z][a-z]+)/i)?.[1] || 'AI' }}",
+          "lastName": "{{ $json.original_message.match(/(?:create.*contact.*for|new.*lead.*named?)\\s+[A-Z][a-z]+\\s+([A-Z][a-z]+)/i)?.[1] || 'Generated' }}",
+          "leadStatus": "NEW",
+          "lifecycleStage": "lead",
+          "properties": [
+            {
+              "property": "ai_generated",
+              "value": "true"
+            },
+            {
+              "property": "source_department",
+              "value": "{{ $json.department }}"
+            },
+            {
+              "property": "original_request",
+              "value": "{{ $json.original_message.substring(0, 100) }}"
+            }
+          ]
+        }
+      },
+      "id": "hubspot_action",
+      "name": "HubSpot Create",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2,
+      "position": [
+        1050,
+        50
+      ],
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "1",
+          "name": "HubSpot Private App"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.actions.some(a => a.type === 'gmail_send') }}",
+              "operation": "equal",
+              "value2": "true"
+            }
+          ]
+        }
+      },
+      "id": "if_gmail",
+      "name": "If Gmail",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        850,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "techintelligencetraining@gmail.com",
+        "subject": "AI Agent Action: {{ $json.department }}",
+        "messageType": "text",
+        "message": "Agent Response:\n\n{{ $json.agent_response }}\n\nOriginal Request: {{ $json.original_message }}"
+      },
+      "id": "gmail_action",
+      "name": "Gmail Send",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1050,
+        150
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "2",
+          "name": "Gmail OAuth2"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.actions.some(a => a.type === 'slack_notify') }}",
+              "operation": "equal",
+              "value2": "true"
+            }
+          ]
+        }
+      },
+      "id": "if_slack",
+      "name": "If Slack",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        850,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "message",
+        "operation": "post",
+        "channel": "all-jeweled-tech",
+        "text": "\ud83e\udd16 *{{ $json.department }} Department Alert*\n\n{{ $json.agent_response }}"
+      },
+      "id": "slack_action",
+      "name": "Slack Notify",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [
+        1050,
+        250
+      ],
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "4",
+          "name": "Slack OAuth2"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.actions.some(a => a.type === 'freshdesk_ticket') }}",
+              "operation": "equal",
+              "value2": "true"
+            }
+          ]
+        }
+      },
+      "id": "if_freshdesk",
+      "name": "If Freshdesk",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        850,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "apiKey",
+        "resource": "ticket",
+        "operation": "create",
+        "requesterIdentification": "email",
+        "value": "={{ $json.original_message.match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\\.[a-zA-Z0-9_-]+)/gi)?.[0] || 'support-request-' + $now.toUnix() + '@jeweledtech.com' }}",
+        "subject": "={{ $json.original_message.match(/(urgent|critical|high priority)/i) ? '\ud83d\udd34 URGENT: ' : '' }}AI Support Request - {{ $json.department }} Department",
+        "description": "**Original Request:**\n{{ $json.original_message }}\n\n**AI Agent Analysis:**\n{{ $json.agent_response }}\n\n**Department:** {{ $json.department }}\n**Timestamp:** {{ $now.toISO() }}",
+        "priority": "={{ $json.original_message.match(/urgent|critical|asap|emergency/i) ? 4 : $json.original_message.match(/high priority|important/i) ? 3 : $json.original_message.match(/low priority|when possible/i) ? 1 : 2 }}",
+        "status": "open",
+        "tags": "={{ ['ai-generated', $json.department, 'n8n-workflow'] }}",
+        "type": "={{ $json.original_message.match(/bug|error|broken|not working/i) ? 'Problem' : $json.original_message.match(/how to|question|wondering/i) ? 'Question' : $json.original_message.match(/feature|enhancement|add|implement/i) ? 'Feature Request' : 'Incident' }}"
+      },
+      "id": "freshdesk_action",
+      "name": "Freshdesk Create",
+      "type": "n8n-nodes-base.freshdesk",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        350
+      ],
+      "credentials": {
+        "freshdeskApi": {
+          "id": "3",
+          "name": "Freshdesk API"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.actions.some(a => a.type === 'github_issue') }}",
+              "operation": "equal",
+              "value2": "true"
+            }
+          ]
+        }
+      },
+      "id": "if_github",
+      "name": "If GitHub",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        850,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "accessToken",
+        "resource": "issue",
+        "operation": "create",
+        "owner": "brenbrown43",
+        "repository": "agentic_system_project",
+        "title": "AI Agent: {{ $json.department }}",
+        "body": "**Agent Response:**\n\n{{ $json.agent_response }}\n\n**Original Request:** {{ $json.original_message }}"
+      },
+      "id": "github_action",
+      "name": "GitHub Create",
+      "type": "n8n-nodes-base.github",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        450
+      ],
+      "credentials": {
+        "githubApi": {
+          "id": "5",
+          "name": "GitHub API"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.actions.some(a => a.type === 'google_calendar') }}",
+              "operation": "equal",
+              "value2": "true"
+            }
+          ]
+        }
+      },
+      "id": "if_calendar",
+      "name": "If Google Calendar",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        850,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "event",
+        "operation": "create",
+        "calendar": {
+          "__rl": true,
+          "value": "techintelligencetraining@gmail.com",
+          "mode": "list",
+          "cachedResultName": "techintelligencetraining@gmail.com"
+        },
+        "summary": "AI Scheduled: {{ $json.department }} Meeting",
+        "start": "={{ $now.plus({days: 1}).toISO() }}",
+        "end": "={{ $now.plus({days: 1, hours: 1}).toISO() }}",
+        "description": "Meeting scheduled by AI Agent\n\nContext: {{ $json.agent_response }}"
+      },
+      "id": "calendar_action",
+      "name": "Google Calendar Create",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        550
+      ],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "6",
+          "name": "Google Calendar OAuth2"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.actions.some(a => a.type === 'wave_invoice') }}",
+              "operation": "equal",
+              "value2": "true"
+            }
+          ]
+        }
+      },
+      "id": "if_wave",
+      "name": "If Wave Invoice",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        850,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.waveapps.com/graphql/public",
+        "authentication": "oAuth2",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"query\": \"mutation CreateInvoice($input: InvoiceCreateInput!) { invoiceCreate(input: $input) { invoice { id createdAt invoiceNumber } } }\",\n  \"variables\": {\n    \"input\": {\n      \"businessId\": \"{{ $env.WAVE_BUSINESS_ID }}\",\n      \"customerId\": \"{{ $env.WAVE_DEFAULT_CUSTOMER_ID }}\",\n      \"invoiceDate\": \"{{ $now.toISODate() }}\",\n      \"dueDate\": \"{{ $now.plus({days: 30}).toISODate() }}\",\n      \"items\": [{\n        \"description\": \"AI Generated Service - {{ $json.department }} - {{ $json.agent_response.substring(0, 50) }}...\",\n        \"quantity\": 1,\n        \"unitPrice\": 100.00,\n        \"accountId\": \"{{ $env.WAVE_INCOME_ACCOUNT_ID }}\"\n      }],\n      \"memo\": \"Generated by AI Agent: {{ $json.original_message }}\"\n    }\n  }\n}",
+        "options": {}
+      },
+      "id": "wave_action",
+      "name": "Wave Invoice Create",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1050,
+        650
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "7",
+          "name": "Wave OAuth2"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.actions.some(a => a.type === 'wazuh_alert') }}",
+              "operation": "equal",
+              "value2": "true"
+            }
+          ]
+        }
+      },
+      "id": "if_wazuh",
+      "name": "If Wazuh Alert",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        850,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://wazuh.jeweledtech.com:55000/events",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"events\": [{\n    \"agent\": {\n      \"id\": \"000\",\n      \"name\": \"n8n-ai-agent\"\n    },\n    \"data\": {\n      \"alert_type\": \"ai_security_event\",\n      \"title\": \"AI Security Alert - {{ $json.department }}\",\n      \"description\": \"{{ $json.agent_response }}\",\n      \"severity\": \"medium\",\n      \"source\": \"AI Agent System\",\n      \"department\": \"{{ $json.department }}\",\n      \"original_request\": \"{{ $json.original_message }}\"\n    },\n    \"timestamp\": \"{{ $now.toISO() }}\",\n    \"rule\": {\n      \"level\": 7,\n      \"description\": \"AI Agent Security Event\",\n      \"id\": \"100001\"\n    }\n  }]\n}",
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "id": "wazuh_action",
+      "name": "Wazuh Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1050,
+        750
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "8",
+          "name": "Wazuh API"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.actions.some(a => a.type === 'notion_update') }}",
+              "operation": "equal",
+              "value2": "true"
+            }
+          ]
+        }
+      },
+      "id": "if_notion",
+      "name": "If Notion Update",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        850,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "page",
+        "operation": "create",
+        "parent": {
+          "__rl": true,
+          "value": "https://www.notion.so/1acbc254bbd880a194f6d54fe7d7c799?v=1acbc254bbd8800ba68c000cd6318589",
+          "mode": "url"
+        },
+        "title": "AI Generated: {{ $json.department }} Update",
+        "content": {
+          "richText": [
+            {
+              "text": {
+                "content": "{{ $json.agent_response }}\n\nGenerated at: {{ $now.toISO() }}"
+              }
+            }
+          ]
+        }
+      },
+      "id": "notion_action",
+      "name": "Notion Page Create",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2,
+      "position": [
+        1050,
+        850
+      ],
+      "credentials": {
+        "notionOAuth2Api": {
+          "id": "9",
+          "name": "Notion OAuth2"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.actions.some(a => a.type === 'supabase_log') }}",
+              "operation": "equal",
+              "value2": "true"
+            }
+          ]
+        }
+      },
+      "id": "if_supabase",
+      "name": "If Supabase",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        850,
+        1000
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "{{ $env.SUPABASE_URL }}/rest/v1/agent_logs",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "{{ $env.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "department",
+              "value": "={{ $json.department }}"
+            },
+            {
+              "name": "message",
+              "value": "={{ $json.original_message }}"
+            },
+            {
+              "name": "response",
+              "value": "={{ $json.agent_response }}"
+            },
+            {
+              "name": "actions",
+              "value": "={{ JSON.stringify($json.actions) }}"
+            },
+            {
+              "name": "timestamp",
+              "value": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "id": "supabase_log",
+      "name": "Supabase Log",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1050,
+        950
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Collect all action results\nconst results = {\n  original_request: $node[\"Detect Required Actions\"].json.original_message,\n  department: $node[\"Detect Required Actions\"].json.department,\n  agent_response: $node[\"Detect Required Actions\"].json.agent_response,\n  actions_completed: [],\n  actions_failed: []\n};\n\n// Check each action type\nconst actionTypes = [\n  { type: 'hubspot_contact', node: 'HubSpot Create' },\n  { type: 'gmail_send', node: 'Gmail Send' },\n  { type: 'slack_notify', node: 'Slack Notify' },\n  { type: 'freshdesk_ticket', node: 'Freshdesk Create' },\n  { type: 'github_issue', node: 'GitHub Create' },\n  { type: 'google_calendar', node: 'Google Calendar Create' },\n  { type: 'wave_invoice', node: 'Wave Invoice Create' },\n  { type: 'wazuh_alert', node: 'Wazuh Alert' },\n  { type: 'notion_update', node: 'Notion Page Create' },\n  { type: 'supabase_log', node: 'Supabase Log' }\n];\n\nfor (const action of actionTypes) {\n  try {\n    if ($node[action.node] && $node[action.node].json) {\n      results.actions_completed.push({\n        type: action.type,\n        success: true,\n        details: $node[action.node].json\n      });\n    }\n  } catch (e) {\n    // Action not executed or failed\n  }\n}\n\nresults.summary = `Completed ${results.actions_completed.length} actions for ${results.department} department`;\n\nreturn [{ json: results }];"
+      },
+      "id": "collect_results",
+      "name": "Collect All Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1250,
+        500
+      ]
+    }
+  ],
+  "connections": {
+    "Integrated Chat Webhook": {
+      "main": [
+        [
+          {
+            "node": "Call Agent API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Agent API": {
+      "main": [
+        [
+          {
+            "node": "Detect Required Actions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detect Required Actions": {
+      "main": [
+        [
+          {
+            "node": "If HubSpot",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If Gmail",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If Slack",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If Freshdesk",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If GitHub",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If Google Calendar",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If Wave Invoice",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If Wazuh Alert",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If Notion Update",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If HubSpot": {
+      "main": [
+        [
+          {
+            "node": "HubSpot Create",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Collect All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Gmail": {
+      "main": [
+        [
+          {
+            "node": "Gmail Send",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Collect All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Slack": {
+      "main": [
+        [
+          {
+            "node": "Slack Notify",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Collect All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Freshdesk": {
+      "main": [
+        [
+          {
+            "node": "Freshdesk Create",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Collect All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If GitHub": {
+      "main": [
+        [
+          {
+            "node": "GitHub Create",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Collect All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Google Calendar": {
+      "main": [
+        [
+          {
+            "node": "Google Calendar Create",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Collect All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Wave Invoice": {
+      "main": [
+        [
+          {
+            "node": "Wave Invoice Create",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Collect All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Wazuh Alert": {
+      "main": [
+        [
+          {
+            "node": "Wazuh Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Collect All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Notion Update": {
+      "main": [
+        [
+          {
+            "node": "Notion Page Create",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Collect All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Supabase": {
+      "main": [
+        [
+          {
+            "node": "Supabase Log",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Collect All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HubSpot Create": {
+      "main": [
+        [
+          {
+            "node": "Collect All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail Send": {
+      "main": [
+        [
+          {
+            "node": "Collect All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack Notify": {
+      "main": [
+        [
+          {
+            "node": "Collect All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Freshdesk Create": {
+      "main": [
+        [
+          {
+            "node": "Collect All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GitHub Create": {
+      "main": [
+        [
+          {
+            "node": "Collect All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Calendar Create": {
+      "main": [
+        [
+          {
+            "node": "Collect All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wave Invoice Create": {
+      "main": [
+        [
+          {
+            "node": "Collect All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wazuh Alert": {
+      "main": [
+        [
+          {
+            "node": "Collect All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notion Page Create": {
+      "main": [
+        [
+          {
+            "node": "Collect All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase Log": {
+      "main": [
+        [
+          {
+            "node": "Collect All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

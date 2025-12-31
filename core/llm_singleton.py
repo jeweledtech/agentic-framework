@@ -202,15 +202,23 @@ class SimpleMockLLM(LLM):
         # For Pydantic v2 compatibility, pass model_name to super().__init__
         super().__init__(model_name=model_name, **kwargs)
         print(f"Using SIMPLE MOCK LLM ({model_name}) for CrewAI (no actual model or LangChain)")
-    
+
     def _call(self, prompt: str, **kwargs) -> str:
         """Generate a mock response"""
         return f"Mock {self.model_name} response to: {prompt[:50]}...\n\nAs an AI assistant, I'll help with your request and ensure to follow all instructions carefully."
-    
+
     @property
     def _llm_type(self) -> str:
         """Return the type of LLM"""
         return f"mock_{self.model_name.replace(':', '_')}"
+
+    def supports_stop_words(self) -> bool:
+        """Return whether this model supports stop words - required by CrewAI"""
+        return True
+
+    def lower(self):
+        """Return lowercase model type for compatibility with CrewAI."""
+        return self._llm_type.lower()
 
 
 if LANGCHAIN_AVAILABLE:

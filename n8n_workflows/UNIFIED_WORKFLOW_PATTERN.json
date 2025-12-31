@@ -1,0 +1,176 @@
+{
+  "name": "Unified Pattern - CrewAI Integration",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "webhook-endpoint",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.jeweledtech.com/{{ $json.endpoint || 'chat' }}",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "call_crewai",
+      "name": "Call CrewAI Brain",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        450,
+        300
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Parse CrewAI response\nconst response = $input.all()[0].json;\n\n// Check if actions need to be executed\nif (response.actions && response.actions.length > 0) {\n  return [{\n    json: {\n      ...response,\n      executeActions: true\n    }\n  }];\n}\n\n// No actions needed, return response as-is\nreturn [{ json: response }];"
+      },
+      "id": "parse_response",
+      "name": "Parse Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        650,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.executeActions }}",
+              "operation": "true"
+            }
+          ]
+        }
+      },
+      "id": "check_actions",
+      "name": "Has Actions?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        850,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_URL }}/webhook/action-executor",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({actions: $json.actions, context: $json}) }}",
+        "options": {}
+      },
+      "id": "execute_actions",
+      "name": "Execute Actions",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1050,
+        250
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Return final response\nconst response = $json;\n\nreturn [{\n  json: {\n    success: true,\n    ...response,\n    processed_by: 'n8n_orchestrator',\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "final_response",
+      "name": "Final Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1250,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Call CrewAI Brain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call CrewAI Brain": {
+      "main": [
+        [
+          {
+            "node": "Parse Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Response": {
+      "main": [
+        [
+          {
+            "node": "Has Actions?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Actions?": {
+      "main": [
+        [
+          {
+            "node": "Execute Actions",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Final Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Actions": {
+      "main": [
+        [
+          {
+            "node": "Final Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

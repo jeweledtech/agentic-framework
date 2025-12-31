@@ -1,0 +1,291 @@
+{
+  "name": "Monitoring & Logging - Simple Version",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "id": "schedule_monitor",
+      "name": "Every 5 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "path": "error-logger",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook_logger",
+      "name": "Error Logger Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 500],
+      "webhookId": "error-logger"
+    },
+    {
+      "parameters": {
+        "path": "metrics-collector",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook_metrics",
+      "name": "Metrics Collector",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 700],
+      "webhookId": "metrics-collector"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Define all workflows to monitor\nconst workflows = [\n  { name: 'Main API Gateway', webhook: 'status', type: 'core' },\n  { name: 'Chief AI Agent', webhook: 'chief-ai-agent', type: 'core' },\n  { name: 'Sales Department', webhook: 'sales-department', type: 'department' },\n  { name: 'Marketing Department', webhook: 'marketing-department', type: 'department' },\n  { name: 'Engineering Department', webhook: 'product-department', type: 'department' },\n  { name: 'Customer Department', webhook: 'customer-department', type: 'department' },\n  { name: 'Back Office Department', webhook: 'backoffice-department', type: 'department' },\n  { name: 'Security Department', webhook: 'security-department', type: 'department' },\n  { name: 'Knowledge Base', webhook: 'knowledge-base', type: 'service' },\n  { name: 'MCP Integration', webhook: 'mcp-tools', type: 'service' }\n];\n\nreturn workflows.map(workflow => ({\n  json: workflow\n}));"
+      },
+      "id": "define_monitors",
+      "name": "Define Monitors",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://workflow.jeweledtech.com/webhook/{{ $json.webhook }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "health_check",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "health_check",
+      "name": "Health Check",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [650, 300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process health check results\nconst workflow = $input.item.json;\nconst response = $input.item.json;\nconst responseTime = $input.item.responseTime || 0;\n\n// Determine health status\nlet status = 'healthy';\nlet healthScore = 100;\nlet issues = [];\n\nif (response.error) {\n  status = 'unhealthy';\n  healthScore = 0;\n  issues.push(`Error: ${response.error.message || 'Unknown error'}`);\n} else if (responseTime > 3000) {\n  status = 'degraded';\n  healthScore = 70;\n  issues.push(`Slow response: ${responseTime}ms`);\n}\n\n// Create health record\nconst healthRecord = {\n  timestamp: new Date().toISOString(),\n  workflow: workflow.name,\n  type: workflow.type,\n  status: status,\n  healthScore: healthScore,\n  responseTime: responseTime,\n  issues: issues,\n  details: response\n};\n\nreturn healthRecord;"
+      },
+      "id": "process_health",
+      "name": "Process Health Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aggregate all health checks\nconst healthRecords = $input.all().map(item => item.json);\n\n// Calculate overall system health\nconst totalScore = healthRecords.reduce((sum, record) => sum + record.healthScore, 0);\nconst avgScore = totalScore / healthRecords.length;\n\n// Count statuses\nconst statusCounts = healthRecords.reduce((counts, record) => {\n  counts[record.status] = (counts[record.status] || 0) + 1;\n  return counts;\n}, {});\n\n// Create dashboard\nconst dashboard = {\n  timestamp: new Date().toISOString(),\n  overall: {\n    health: avgScore,\n    status: avgScore >= 90 ? 'healthy' : avgScore >= 70 ? 'degraded' : 'unhealthy',\n    totalWorkflows: healthRecords.length,\n    healthy: statusCounts.healthy || 0,\n    degraded: statusCounts.degraded || 0,\n    unhealthy: statusCounts.unhealthy || 0\n  },\n  workflows: healthRecords,\n  alerts: healthRecords.filter(r => r.status !== 'healthy').map(r => ({\n    workflow: r.workflow,\n    status: r.status,\n    issues: r.issues\n  }))\n};\n\nreturn dashboard;"
+      },
+      "id": "create_dashboard",
+      "name": "Create Health Dashboard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.overall.health < 80 }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check_alerts",
+      "name": "Check Alert Conditions",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://workflow.jeweledtech.com/webhook/notifications",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "type",
+              "value": "system_alert"
+            },
+            {
+              "name": "severity",
+              "value": "={{ $json.overall.health < 50 ? 'critical' : 'warning' }}"
+            },
+            {
+              "name": "message",
+              "value": "=System health degraded: {{ $json.overall.status }} ({{ $json.overall.health }}%)"
+            },
+            {
+              "name": "details",
+              "value": "={{ JSON.stringify($json.alerts) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "send_alert",
+      "name": "Send Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1450, 200],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "content": "=## System Health Report\n**Time:** {{ $json.timestamp }}\n**Overall Health:** {{ $json.overall.health }}%\n**Status:** {{ $json.overall.status }}\n\n### Workflow Status\n- Healthy: {{ $json.overall.healthy }}\n- Degraded: {{ $json.overall.degraded }}\n- Unhealthy: {{ $json.overall.unhealthy }}\n\n{{ $json.alerts.length > 0 ? '### Alerts\\n' + $json.alerts.map(a => `- ${a.workflow}: ${a.status}`).join('\\n') : '✅ All systems operational' }}",
+        "options": {}
+      },
+      "id": "format_report",
+      "name": "Format Report",
+      "type": "n8n-nodes-base.markdown",
+      "typeVersion": 1,
+      "position": [1250, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process error logs\nconst errorData = $input.all()[0].json.body;\n\n// Standardize error format\nconst errorLog = {\n  id: `error_${Date.now()}`,\n  timestamp: new Date().toISOString(),\n  source: errorData.source || 'unknown',\n  severity: errorData.severity || 'error',\n  message: errorData.message || 'Unknown error',\n  details: errorData.details || {},\n  stack: errorData.stack || null,\n  workflow: errorData.workflow || null,\n  resolved: false\n};\n\nreturn errorLog;"
+      },
+      "id": "process_error",
+      "name": "Process Error Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [450, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process metrics\nconst metricsData = $input.all()[0].json.body;\n\n// Standardize metrics\nconst metrics = {\n  id: `metric_${Date.now()}`,\n  timestamp: new Date().toISOString(),\n  source: metricsData.source || 'unknown',\n  type: metricsData.type || 'custom',\n  data: metricsData.metrics || metricsData\n};\n\nreturn metrics;"
+      },
+      "id": "process_metrics",
+      "name": "Process Metrics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [450, 700]
+    }
+  ],
+  "connections": {
+    "schedule_monitor": {
+      "main": [
+        [
+          {
+            "node": "define_monitors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "define_monitors": {
+      "main": [
+        [
+          {
+            "node": "health_check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "health_check": {
+      "main": [
+        [
+          {
+            "node": "process_health",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "process_health": {
+      "main": [
+        [
+          {
+            "node": "create_dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "create_dashboard": {
+      "main": [
+        [
+          {
+            "node": "check_alerts",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "format_report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check_alerts": {
+      "main": [
+        [
+          {
+            "node": "send_alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "webhook_logger": {
+      "main": [
+        [
+          {
+            "node": "process_error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "webhook_metrics": {
+      "main": [
+        [
+          {
+            "node": "process_metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateId": "monitoring_logging_simple"
+  },
+  "pinData": {},
+  "versionId": "simple-1.0"
+}

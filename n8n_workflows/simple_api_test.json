@@ -1,0 +1,42 @@
+{
+  "name": "Simple API Test",
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.jeweledtech.com/workflow/trigger",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "use_case",
+              "value": "assessment_analysis"
+            },
+            {
+              "name": "department", 
+              "value": "sales"
+            },
+            {
+              "name": "workflow_type",
+              "value": "assessment_analysis"
+            },
+            {
+              "name": "data",
+              "value": "={{ JSON.stringify({company_name: 'Test Company', vertical: 'real_estate'}) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http_test",
+      "name": "HTTP Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [250, 300]
+    }
+  ],
+  "connections": {},
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

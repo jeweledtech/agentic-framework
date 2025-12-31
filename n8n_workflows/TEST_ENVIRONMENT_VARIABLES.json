@@ -1,0 +1,82 @@
+{
+  "name": "Test Environment Variables",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "test-env-vars",
+        "httpMethod": "GET",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook_test",
+      "name": "Test Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "test-environment-variables"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Test all environment variables\nconst envVars = {\n  // Our custom workflow environment variables\n  crewai_api_url: $env.CREWAI_API_URL || 'NOT_SET',\n  monitoring_webhook_url: $env.MONITORING_WEBHOOK_URL || 'NOT_SET',\n  from_email: $env.FROM_EMAIL || 'NOT_SET',\n  reply_to_email: $env.REPLY_TO_EMAIL || 'NOT_SET',\n  webhook_url: $env.WEBHOOK_URL || 'NOT_SET',\n  n8n_log_level: $env.N8N_LOG_LEVEL || 'NOT_SET',\n  \n  // Secret variables (check if set, don't show values)\n  webhook_api_key_set: $env.WEBHOOK_API_KEY ? 'SET' : 'NOT_SET',\n  resend_api_key_set: $env.RESEND_API_KEY ? 'SET' : 'NOT_SET',\n  \n  // Test existing n8n environment variables\n  n8n_host: $env.N8N_HOST || 'NOT_SET',\n  n8n_port: $env.N8N_PORT || 'NOT_SET',\n  api_base_url: $env.API_BASE_URL || 'NOT_SET',\n  \n  // List all environment variables that contain our keywords\n  all_custom_vars: Object.keys(process.env).filter(key => \n    key.includes('CREWAI') || \n    key.includes('MONITORING') || \n    key.includes('FROM_') || \n    key.includes('REPLY_') || \n    key.includes('WEBHOOK_')\n  ),\n  \n  // Test timestamp\n  test_timestamp: new Date().toISOString(),\n  \n  // Environment status\n  status: 'Environment variables test completed'\n};\n\nreturn [{ json: envVars }];"
+      },
+      "id": "test_env_vars",
+      "name": "Test Environment Variables",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Create a summary report\nconst testResults = $json;\n\nconst report = {\n  summary: {\n    test_name: 'Environment Variables Validation',\n    test_time: testResults.test_timestamp,\n    total_custom_vars_found: testResults.all_custom_vars.length\n  },\n  \n  workflow_variables: {\n    crewai_api_url: {\n      value: testResults.crewai_api_url,\n      status: testResults.crewai_api_url !== 'NOT_SET' ? 'PASS' : 'FAIL',\n      expected: 'https://api.jeweledtech.com'\n    },\n    monitoring_webhook_url: {\n      value: testResults.monitoring_webhook_url,\n      status: testResults.monitoring_webhook_url !== 'NOT_SET' ? 'PASS' : 'FAIL',\n      expected: 'https://api.jeweledtech.com/monitoring/workflow-execution'\n    },\n    from_email: {\n      value: testResults.from_email,\n      status: testResults.from_email !== 'NOT_SET' ? 'PASS' : 'FAIL',\n      expected: 'JeweledTech AI <ai@jeweledtech.com>'\n    },\n    reply_to_email: {\n      value: testResults.reply_to_email,\n      status: testResults.reply_to_email !== 'NOT_SET' ? 'PASS' : 'FAIL',\n      expected: 'admin@jeweledtech.com'\n    }\n  },\n  \n  secret_variables: {\n    webhook_api_key: {\n      status: testResults.webhook_api_key_set,\n      note: 'Value hidden for security'\n    },\n    resend_api_key: {\n      status: testResults.resend_api_key_set,\n      note: 'Value hidden for security'\n    }\n  },\n  \n  all_detected_custom_vars: testResults.all_custom_vars,\n  \n  overall_status: (\n    testResults.crewai_api_url !== 'NOT_SET' &&\n    testResults.monitoring_webhook_url !== 'NOT_SET' &&\n    testResults.from_email !== 'NOT_SET' &&\n    testResults.reply_to_email !== 'NOT_SET'\n  ) ? 'PASS - All environment variables loaded successfully!' : 'FAIL - Some environment variables missing'\n};\n\nreturn [{ json: report }];"
+      },
+      "id": "create_report",
+      "name": "Create Test Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Test Webhook": {
+      "main": [
+        [
+          {
+            "node": "Test Environment Variables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test Environment Variables": {
+      "main": [
+        [
+          {
+            "node": "Create Test Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateId": "test-environment-variables"
+  },
+  "pinData": {}
+}

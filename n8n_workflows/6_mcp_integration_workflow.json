@@ -1,0 +1,119 @@
+{
+  "name": "MCP Integration - External Services",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "mcp-tools",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "id": "webhook_mcp",
+      "name": "MCP Tools Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 400],
+      "webhookId": "mcp-tools"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Parse MCP tool request\nconst toolName = $input.all()[0].json.body.tool;\nconst action = $input.all()[0].json.body.action;\nconst parameters = $input.all()[0].json.body.parameters || {};\nconst authToken = $input.all()[0].json.body.authToken || null;\n\n// Available MCP tools mapping\nconst mcpTools = {\n  // File operations\n  'file_read': { service: 'filesystem', requiresAuth: false },\n  'file_write': { service: 'filesystem', requiresAuth: false },\n  'file_list': { service: 'filesystem', requiresAuth: false },\n  \n  // Notion integration\n  'notion_query_db': { service: 'notion', requiresAuth: true },\n  'notion_create_page': { service: 'notion', requiresAuth: true },\n  'notion_update_page': { service: 'notion', requiresAuth: true },\n  'notion_pipeline_tool': { service: 'notion', requiresAuth: true },\n  'notion_crm_tool': { service: 'notion', requiresAuth: true },\n  \n  // Google Workspace\n  'google_calendar': { service: 'google', requiresAuth: true },\n  'google_gmail': { service: 'google', requiresAuth: true },\n  'google_drive': { service: 'google', requiresAuth: true },\n  \n  // Communication\n  'send_email': { service: 'email', requiresAuth: true },\n  'send_sms': { service: 'twilio', requiresAuth: true },\n  'slack_message': { service: 'slack', requiresAuth: true },\n  \n  // Data operations\n  'database_query': { service: 'database', requiresAuth: true },\n  'api_request': { service: 'http', requiresAuth: false },\n  'webhook_trigger': { service: 'webhook', requiresAuth: false }\n};\n\n// Validate tool\nif (!mcpTools[toolName]) {\n  return [{\n    json: {\n      success: false,\n      error: `Unknown MCP tool: ${toolName}`,\n      availableTools: Object.keys(mcpTools)\n    }\n  }];\n}\n\n// Check authentication if required\nconst toolConfig = mcpTools[toolName];\nif (toolConfig.requiresAuth && !authToken) {\n  return [{\n    json: {\n      success: false,\n      error: `Tool ${toolName} requires authentication`,\n      authRequired: true,\n      service: toolConfig.service\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    tool: toolName,\n    action: action,\n    parameters: parameters,\n    service: toolConfig.service,\n    requiresAuth: toolConfig.requiresAuth,\n    authToken: authToken,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "parse_mcp_request",
+      "name": "Parse MCP Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_URL }}/webhook/api-bridge",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "agent_id",
+              "value": "mcp_tools_agent"
+            },
+            {
+              "name": "department",
+              "value": "infrastructure"
+            },
+            {
+              "name": "task",
+              "value": "={{ 'Execute MCP tool: ' + $json.tool + ' with action: ' + $json.action }}"
+            },
+            {
+              "name": "parameters",
+              "value": "={{ { \"tool\": $json.tool, \"action\": $json.action, \"parameters\": $json.parameters, \"service\": $json.service, \"authToken\": $json.authToken } }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "execute_mcp_tool",
+      "name": "Execute MCP Tool",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [650, 400]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Format MCP response from API\nconst apiResponse = $input.all()[0].json;\nconst originalData = $node[\"Parse MCP Request\"].json;\n\n// Extract the result from API response\nconst toolResult = apiResponse.result || \"Tool execution completed\";\n\nlet formattedResponse = {\n  success: apiResponse.status === 'completed',\n  tool: originalData.tool,\n  action: originalData.action,\n  service: originalData.service,\n  result: toolResult,\n  timestamp: new Date().toISOString()\n};\n\nreturn [{\n  json: formattedResponse\n}];"
+      },
+      "id": "format_response",
+      "name": "Format MCP Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 400]
+    }
+  ],
+  "connections": {
+    "MCP Tools Webhook": {
+      "main": [
+        [
+          {
+            "node": "Parse MCP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse MCP Request": {
+      "main": [
+        [
+          {
+            "node": "Execute MCP Tool",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute MCP Tool": {
+      "main": [
+        [
+          {
+            "node": "Format MCP Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "instanceId": "mcp-integration-service"
+  }
+}

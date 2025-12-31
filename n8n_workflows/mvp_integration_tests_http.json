@@ -1,0 +1,124 @@
+{
+  "name": "MVP Integration Tests - HTTP",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "test-integrations-http",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook_test",
+      "name": "Test Integrations Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        400
+      ],
+      "webhookId": "integration-tests-http"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Parse test request\nconst integration = $input.all()[0].json.body.integration;\nconst department = $input.all()[0].json.body.department || 'all';\n\n// Map integrations to departments\nconst integrationMap = {\n  'gmail': { department: 'all', message: 'Send email notification about new lead' },\n  'hubspot': { department: 'sales', message: 'Create new contact in CRM for John Doe' },\n  'google-calendar': { department: 'sales', message: 'Schedule meeting with prospect next Tuesday at 2pm' },\n  'github': { department: 'product', message: 'Create issue for bug in authentication module' },\n  'freshdesk': { department: 'customer', message: 'Handle support ticket about login issues' },\n  'wave': { department: 'back_office', message: 'Generate invoice for client ABC Corp' },\n  'wazuh': { department: 'security', message: 'Check security alerts from last 24 hours' },\n  'slack': { department: 'all', message: 'Post update about system maintenance' },\n  'notion': { department: 'all', message: 'Update knowledge base with new product features' },\n  'supabase': { department: 'all', message: 'Store workflow execution log' }\n};\n\nconst config = integrationMap[integration] || { department: 'executive', message: `Test ${integration} integration` };\n\nreturn [{\n  json: {\n    integration: integration,\n    department: config.department,\n    message: config.message,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "parse_request",
+      "name": "Parse and Route",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        450,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.jeweledtech.com/chat",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "message",
+              "value": "={{ $json.message }}"
+            },
+            {
+              "name": "channel",
+              "value": "Integration Test"
+            },
+            {
+              "name": "department",
+              "value": "={{ $json.department }}"
+            },
+            {
+              "name": "metadata",
+              "value": "={{ JSON.stringify({ integration: $json.integration, purpose: 'mvp_test' }) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "call_api",
+      "name": "Call Agent API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        650,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Format test result\nconst response = $input.all()[0].json;\nconst request = $node[\"Parse and Route\"].json;\n\nreturn [{\n  json: {\n    test_result: {\n      integration: request.integration,\n      department: response.department || request.department,\n      agent: response.agent || 'unknown',\n      request_message: request.message,\n      response_text: response.text,\n      timestamp: request.timestamp,\n      success: true,\n      details: {\n        would_use: getIntegrationUsage(request.integration, response.text)\n      }\n    }\n  }\n}];\n\nfunction getIntegrationUsage(integration, responseText) {\n  const usageMap = {\n    'gmail': 'Would send email via Gmail SMTP',\n    'hubspot': 'Would create/update contact in HubSpot CRM',\n    'google-calendar': 'Would create calendar event via Google Calendar API',\n    'github': 'Would create issue/PR via GitHub API',\n    'freshdesk': 'Would create/update ticket in Freshdesk',\n    'wave': 'Would generate invoice/report via Wave API',\n    'wazuh': 'Would query security events via Wazuh API',\n    'slack': 'Would post message to Slack channel',\n    'notion': 'Would update Notion database/page',\n    'supabase': 'Would store data in Supabase database'\n  };\n  \n  return usageMap[integration] || 'Unknown integration usage';\n}"
+      },
+      "id": "format_result",
+      "name": "Format Test Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        850,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "Test Integrations Webhook": {
+      "main": [
+        [
+          {
+            "node": "Parse and Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse and Route": {
+      "main": [
+        [
+          {
+            "node": "Call Agent API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Agent API": {
+      "main": [
+        [
+          {
+            "node": "Format Test Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

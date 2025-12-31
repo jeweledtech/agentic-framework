@@ -1,0 +1,172 @@
+{
+  "name": "Knowledge Base Integration - Executor Only (Fixed)",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "knowledge-base",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook",
+      "name": "KB Query Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "webhookId": "knowledge-base"
+    },
+    {
+      "parameters": {
+        "url": "{{ $env.CREWAI_API_URL || 'https://api.jeweledtech.com' }}/knowledge/query",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "call_crewai_kb",
+      "name": "Call CrewAI KB Analysis",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        450,
+        300
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// CrewAI has analyzed the query and determined what to search\nconst response = $json;\n\n// Check if CrewAI wants us to execute KB searches\nif (response.kb_queries && response.kb_queries.length > 0) {\n  return [{\n    json: {\n      queries: response.kb_queries,\n      context: response.context,\n      original_query: $node.webhook.json.body.query\n    }\n  }];\n}\n\n// No KB searches needed, return CrewAI's direct response\nreturn [{\n  json: {\n    response: response.text || response.answer,\n    source: 'crewai_direct',\n    no_kb_search_needed: true\n  }\n}];"
+      },
+      "id": "parse_kb_actions",
+      "name": "Parse KB Actions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        650,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.queries ? true : false }}",
+              "operation": "true"
+            }
+          ]
+        }
+      },
+      "id": "check_queries",
+      "name": "Need KB Search?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        850,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Execute the KB searches that CrewAI requested\n// In production, this would call your actual KB API\n\nconst queries = $json.queries;\nconst results = [];\n\n// Placeholder for actual KB search execution\nfor (const query of queries) {\n  results.push({\n    query: query.text,\n    category: query.category,\n    results: `[KB search results for: ${query.text}]`,\n    source: 'knowledge_base'\n  });\n}\n\nreturn [{\n  json: {\n    kb_search_results: results,\n    queries_executed: queries.length,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "execute_kb_search",
+      "name": "Execute KB Searches",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1050,
+        250
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Format final response\nconst hasKbResults = $json.kb_search_results !== undefined;\n\nif (hasKbResults) {\n  // We executed KB searches\n  return [{\n    json: {\n      success: true,\n      kb_results: $json.kb_search_results,\n      message: 'Knowledge base queries executed as requested by CrewAI',\n      timestamp: new Date().toISOString()\n    }\n  }];\n} else {\n  // Direct response from CrewAI\n  return [{\n    json: {\n      success: true,\n      response: $json.response,\n      source: $json.source,\n      message: 'CrewAI provided direct response without KB search',\n      timestamp: new Date().toISOString()\n    }\n  }];\n}"
+      },
+      "id": "format_response",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1250,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "KB Query Webhook": {
+      "main": [
+        [
+          {
+            "node": "Call CrewAI KB Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call CrewAI KB Analysis": {
+      "main": [
+        [
+          {
+            "node": "Parse KB Actions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse KB Actions": {
+      "main": [
+        [
+          {
+            "node": "Need KB Search?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Need KB Search?": {
+      "main": [
+        [
+          {
+            "node": "Execute KB Searches",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute KB Searches": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

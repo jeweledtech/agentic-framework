@@ -108,10 +108,10 @@ class BaseAgent:
                 tools=self.tools if self.tools else [],
                 llm=self.llm  # Pass our local LangChain LLM
             )
-            print(f"✅ Created CrewAI agent with local LLM: {self.config.role.name}")
+            print(f"[OK] Created CrewAI agent with local LLM: {self.config.role.name}")
             return crew_agent
         except Exception as e:
-            print(f"⚠️  CrewAI agent creation failed ({e}), using direct implementation")
+            print(f"[WARN] CrewAI agent creation failed ({e}), using direct implementation")
             return None
     
     def add_task(self, description: str, expected_output: str, context: Optional[Dict[str, Any]] = None) -> None:

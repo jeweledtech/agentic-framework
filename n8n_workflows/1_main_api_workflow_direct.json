@@ -1,0 +1,168 @@
+{
+  "name": "Agentic System - Main API Direct",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "chat",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "id": "webhook_chat",
+      "name": "Chat Endpoint",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        200
+      ],
+      "webhookId": "chat-endpoint"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Parse incoming chat message\nconst message = $input.all()[0].json.body.message;\nconst channel = $input.all()[0].json.body.channel || 'Web UI';\nconst priority = $input.all()[0].json.body.priority || 'medium';\n\n// Generate unique message ID\nconst messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;\n\n// Prepare data for API\nreturn [{\n  json: {\n    id: messageId,\n    message: message,\n    channel: channel,\n    priority: priority\n  }\n}];"
+      },
+      "id": "process_chat",
+      "name": "Process Chat Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        450,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.jeweledtech.com/chat",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "message",
+              "value": "={{ $json.message }}"
+            },
+            {
+              "name": "channel",
+              "value": "={{ $json.channel }}"
+            },
+            {
+              "name": "priority",
+              "value": "={{ $json.priority }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "call_api",
+      "name": "Call API Chat",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        650,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Format response for chat endpoint\nconst response = $input.all()[0].json;\n\nreturn [{\n  json: {\n    id: response.id,\n    text: response.text,\n    sender: response.sender,\n    timestamp: response.timestamp,\n    channel: response.channel,\n    department: response.department,\n    agent: response.agent\n  }\n}];"
+      },
+      "id": "format_response",
+      "name": "Format Chat Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        850,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "path": "status",
+        "httpMethod": "GET",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook_status",
+      "name": "Status Endpoint",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        400
+      ],
+      "webhookId": "status-endpoint"
+    },
+    {
+      "parameters": {
+        "url": "https://api.jeweledtech.com/status",
+        "method": "GET",
+        "options": {}
+      },
+      "id": "get_status",
+      "name": "Get System Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        450,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "Chat Endpoint": {
+      "main": [
+        [
+          {
+            "node": "Process Chat Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Chat Request": {
+      "main": [
+        [
+          {
+            "node": "Call API Chat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call API Chat": {
+      "main": [
+        [
+          {
+            "node": "Format Chat Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Status Endpoint": {
+      "main": [
+        [
+          {
+            "node": "Get System Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "instanceId": "agentic-system-main-api-direct"
+  }
+}

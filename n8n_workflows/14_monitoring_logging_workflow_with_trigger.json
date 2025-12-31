@@ -1,0 +1,205 @@
+{
+  "name": "Monitoring and Logging Workflow (Scheduled)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "triggerAtMinute": 15
+            }
+          ]
+        }
+      },
+      "id": "schedule_trigger",
+      "name": "Every 15 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Define workflows to monitor\nconst workflows = [\n  { name: 'Main API Gateway', webhook: 'chat', type: 'critical' },\n  { name: 'Chief AI Agent', webhook: 'chief-ai-agent', type: 'critical' },\n  { name: 'API Bridge', webhook: 'api-bridge', type: 'critical' },\n  { name: 'Knowledge Base', webhook: 'knowledge-base', type: 'normal' },\n  { name: 'MCP Tools', webhook: 'mcp-tools', type: 'normal' }\n];\n\nreturn workflows.map(wf => ({json: wf}));"
+      },
+      "id": "define_workflows",
+      "name": "Define Workflows to Monitor",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_URL }}/webhook/{{ $json.webhook }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"health_check\": true, \"timestamp\": \"{{ $now.toISO() }}\"}",
+        "options": {
+          "timeout": 5000,
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "id": "health_check",
+      "name": "Health Check Webhook",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [650, 300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Process health check results\nconst input = $json;\nconst workflow = input.name ? input : {name: 'Unknown', webhook: 'Unknown', type: 'Unknown'};\n\n// Get data from previous HTTP request node\nconst httpNode = $input.context['Health Check Webhook'];\nconst statusCode = httpNode?.statusCode || (httpNode?.error ? 0 : 200);\nconst responseTime = httpNode?.responseTime || 0;\nconst error = httpNode?.error || null;\n\n// Determine health status\nlet status = 'healthy';\nlet healthScore = 100;\nlet issues = [];\n\nif (error || statusCode === 0) {\n  status = 'unhealthy';\n  healthScore = 0;\n  issues.push(error ? error.message : 'Webhook unreachable');\n} else if (statusCode !== 200) {\n  status = 'degraded';\n  healthScore = 50;\n  issues.push(`HTTP ${statusCode}`);\n} else if (responseTime > 3000) {\n  status = 'degraded';\n  healthScore = 70;\n  issues.push(`Slow response: ${responseTime}ms`);\n}\n\nreturn {\n  json: {\n    timestamp: new Date().toISOString(),\n    workflow: workflow.name,\n    webhook: workflow.webhook,\n    type: workflow.type,\n    status: status,\n    healthScore: healthScore,\n    statusCode: statusCode,\n    responseTime: responseTime,\n    issues: issues\n  }\n};"
+      },
+      "id": "process_health",
+      "name": "Process Health Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Aggregate all health checks\nconst healthRecords = $input.all().map(item => item.json);\n\n// Calculate overall system health\nconst totalScore = healthRecords.reduce((sum, record) => sum + record.healthScore, 0);\nconst avgScore = totalScore / healthRecords.length;\n\n// Count statuses\nconst statusCounts = healthRecords.reduce((counts, record) => {\n  counts[record.status] = (counts[record.status] || 0) + 1;\n  return counts;\n}, {});\n\n// Identify critical issues\nconst criticalIssues = healthRecords\n  .filter(r => r.type === 'critical' && r.status !== 'healthy')\n  .map(r => ({ workflow: r.workflow, status: r.status, issues: r.issues }));\n\n// Create monitoring report\nconst report = {\n  timestamp: new Date().toISOString(),\n  overall: {\n    healthScore: Math.round(avgScore),\n    status: avgScore >= 90 ? 'healthy' : avgScore >= 70 ? 'degraded' : 'unhealthy',\n    totalWorkflows: healthRecords.length,\n    healthy: statusCounts.healthy || 0,\n    degraded: statusCounts.degraded || 0,\n    unhealthy: statusCounts.unhealthy || 0\n  },\n  criticalIssues: criticalIssues,\n  allWorkflows: healthRecords\n};\n\nconsole.log('Monitoring Report:', JSON.stringify(report, null, 2));\n\nreturn [{ json: report }];"
+      },
+      "id": "create_report",
+      "name": "Create Monitoring Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "5f3d5c1d-9b88-4f3f-a8e0-123456789abc",
+              "leftValue": "={{ $json.overall.healthScore }}",
+              "rightValue": 80,
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check_alerts",
+      "name": "System Unhealthy?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Log alert (in production, this would send notifications)\nconst report = $input.all()[0].json;\n\nconsole.log('⚠️ SYSTEM ALERT ⚠️');\nconsole.log(`Overall Health: ${report.overall.status} (${report.overall.healthScore}%)`);\nconsole.log(`Critical Issues: ${report.criticalIssues.length}`);\n\nif (report.criticalIssues.length > 0) {\n  console.log('\\nCritical Workflows Down:');\n  report.criticalIssues.forEach(issue => {\n    console.log(`- ${issue.workflow}: ${issue.status}`);\n    issue.issues.forEach(i => console.log(`  → ${i}`));\n  });\n}\n\n// In production, you would:\n// 1. Send email alerts\n// 2. Post to Slack\n// 3. Create incident tickets\n// 4. Store in monitoring database\n\nreturn [{\n  json: {\n    alertSent: true,\n    severity: report.overall.healthScore < 50 ? 'critical' : 'warning',\n    message: `System health degraded to ${report.overall.status}`,\n    report: report\n  }\n}];"
+      },
+      "id": "send_alert",
+      "name": "Log Alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1450, 250]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Store monitoring data (placeholder for database storage)\nconst report = $input.all()[0].json;\n\nconsole.log(`✅ Monitoring cycle completed at ${report.timestamp}`);\nconsole.log(`System Status: ${report.overall.status}`);\nconsole.log(`Next check in 15 minutes...`);\n\n// In production, store this in a time-series database\n// for historical tracking and dashboards\n\nreturn [{ json: { stored: true, report: report } }];"
+      },
+      "id": "store_results",
+      "name": "Store Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1250, 400]
+    }
+  ],
+  "connections": {
+    "Every 15 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Define Workflows to Monitor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Define Workflows to Monitor": {
+      "main": [
+        [
+          {
+            "node": "Health Check Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Health Check Webhook": {
+      "main": [
+        [
+          {
+            "node": "Process Health Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Health Status": {
+      "main": [
+        [
+          {
+            "node": "Create Monitoring Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Monitoring Report": {
+      "main": [
+        [
+          {
+            "node": "System Unhealthy?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Store Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "System Unhealthy?": {
+      "main": [
+        [
+          {
+            "node": "Log Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "instanceId": "monitoring-scheduled"
+  }
+}

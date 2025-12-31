@@ -1,0 +1,125 @@
+{
+  "name": "Chief AI Agent - Simplified",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "chief-ai-agent",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "id": "webhook_chief",
+      "name": "Chief AI Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "webhookId": "chief-ai-agent"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Chief AI Agent - Message Analysis\nconst message = $input.all()[0].json.body.message;\nconst messageId = $input.all()[0].json.body.id;\nconst channel = $input.all()[0].json.body.channel;\nconst priority = $input.all()[0].json.body.priority;\n\n// For now, let's just pass through to the API\nreturn [{\n  json: {\n    messageId: messageId,\n    message: message,\n    channel: channel,\n    priority: priority,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "analyze_message",
+      "name": "Process Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.jeweledtech.com/chat",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "message",
+              "value": "={{ $json.message }}"
+            },
+            {
+              "name": "channel",
+              "value": "={{ $json.channel }}"
+            },
+            {
+              "name": "priority",
+              "value": "={{ $json.priority }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "call_api",
+      "name": "Call API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        650,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Format response\nconst apiResponse = $input.all()[0].json;\nconst originalData = $node[\"Process Message\"].json;\n\nreturn [{\n  json: {\n    id: originalData.messageId || apiResponse.id,\n    text: apiResponse.text,\n    sender: apiResponse.sender,\n    department: apiResponse.department,\n    agent: apiResponse.agent,\n    timestamp: apiResponse.timestamp,\n    channel: apiResponse.channel\n  }\n}];"
+      },
+      "id": "format_response",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        850,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Chief AI Webhook": {
+      "main": [
+        [
+          {
+            "node": "Process Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Message": {
+      "main": [
+        [
+          {
+            "node": "Call API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call API": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "instanceId": "chief-ai-agent-simplified"
+  }
+}

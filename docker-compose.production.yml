@@ -1,0 +1,204 @@
+# JeweledTech Agentic Framework - Production Configuration
+# Optimized for dual RTX 3090 (48GB VRAM), 64GB RAM, dual NVMe
+#
+# GPU Isolation Strategy:
+#   GPU 0 (FE 24GB): Chief Agent - Llama 3.2 70B
+#   GPU 1 (EVGA 24GB): Department Agents - Multiple 8B models
+#
+# Storage Strategy:
+#   SSD 1 (C:/root): OS, Docker, Framework code
+#   SSD 2 (/mnt/ai-data): Models, ChromaDB, Docker volumes
+#
+# Usage:
+#   docker compose -f docker-compose.production.yml up -d
+
+version: '3.8'
+
+services:
+  # ============================================================
+  # Chief Agent Ollama (GPU 0 - 70B model for executive tasks)
+  # ============================================================
+  ollama-chief:
+    image: ollama/ollama:latest
+    container_name: ollama-chief
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      # Mount SSD 2 for model storage
+      - /mnt/ai-data/ollama-chief:/root/.ollama
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - OLLAMA_NUM_PARALLEL=1
+      - OLLAMA_MAX_LOADED_MODELS=1
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['0']
+              capabilities: [gpu]
+        limits:
+          memory: 28G
+    networks:
+      - agentic-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ============================================================
+  # Department Agents Ollama (GPU 1 - 8B models, parallel execution)
+  # ============================================================
+  ollama-workers:
+    image: ollama/ollama:latest
+    container_name: ollama-workers
+    restart: unless-stopped
+    ports:
+      - "11435:11434"
+    volumes:
+      # Mount SSD 2 for model storage
+      - /mnt/ai-data/ollama-workers:/root/.ollama
+    environment:
+      - CUDA_VISIBLE_DEVICES=1
+      - OLLAMA_NUM_PARALLEL=4
+      - OLLAMA_MAX_LOADED_MODELS=5
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['1']
+              capabilities: [gpu]
+        limits:
+          memory: 28G
+    networks:
+      - agentic-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ============================================================
+  # Framework API Server
+  # ============================================================
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agentic-framework-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      # Chief Agent (70B) on GPU 0
+      - OLLAMA_CHIEF_HOST=http://ollama-chief:11434
+      - OLLAMA_CHIEF_MODEL=llama3.2:70b
+      # Department Agents (8B) on GPU 1
+      - OLLAMA_WORKERS_HOST=http://ollama-workers:11434
+      - OLLAMA_WORKERS_MODEL=llama3.2:8b
+      # Default Ollama (for backwards compatibility)
+      - OLLAMA_HOST=http://ollama-workers:11434
+      - OLLAMA_MODEL=llama3.2:8b
+      # n8n Integration (uses n8n's native Instance-level MCP)
+      - N8N_HOST=${N8N_HOST}
+      - N8N_MCP_SERVER_URI=${N8N_MCP_SERVER_URI}
+      # Security
+      - FRAMEWORK_API_KEY=${FRAMEWORK_API_KEY}
+      - ENABLE_AUTH=true
+      # General
+      - PYTHONUNBUFFERED=1
+      - USE_MOCK_KB=false
+      - DEBUG_MODE=false
+    volumes:
+      # Mount SSD 2 for knowledge bases
+      - /mnt/ai-data/knowledge_bases:/app/knowledge_bases
+      - ./agents:/app/agents
+    depends_on:
+      ollama-chief:
+        condition: service_healthy
+      ollama-workers:
+        condition: service_healthy
+      chromadb:
+        condition: service_healthy
+    networks:
+      - agentic-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 16G
+        reservations:
+          memory: 8G
+
+  # ============================================================
+  # n8n MCP Integration
+  # ============================================================
+  # NOTE: Using n8n's native Instance-level MCP server
+  # No separate container needed - connect directly to:
+  # https://jtsinc.app.n8n.cloud/mcp-server/http
+
+  # ============================================================
+  # ChromaDB Vector Database
+  # ============================================================
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: chromadb
+    restart: unless-stopped
+    ports:
+      - "8001:8000"
+    environment:
+      - ANONYMIZED_TELEMETRY=false
+      - ALLOW_RESET=false
+    volumes:
+      # Mount SSD 2 for vector storage
+      - /mnt/ai-data/chromadb:/chroma/chroma
+    networks:
+      - agentic-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 4G
+
+  # ============================================================
+  # Nginx Reverse Proxy (optional - for SSL/production access)
+  # ============================================================
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: nginx-proxy
+  #   restart: unless-stopped
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx.conf:/etc/nginx/nginx.conf:ro
+  #     - /etc/letsencrypt:/etc/letsencrypt:ro
+  #   depends_on:
+  #     - api
+  #   networks:
+  #     - agentic-network
+
+networks:
+  agentic-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+# No local volumes - all data on SSD 2 (/mnt/ai-data)

@@ -1,0 +1,211 @@
+{
+  "name": "Phase 5: Nurture Email Sender (Scheduled)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "schedule_trigger",
+      "name": "Every Hour",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "row",
+        "operation": "getAll",
+        "tableId": "email_nurture_queue",
+        "returnAll": false,
+        "limit": 50,
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "status",
+              "keyValue": "scheduled",
+              "condition": "string:equals"
+            },
+            {
+              "keyName": "send_at",
+              "keyValue": "={{ $now.toISO() }}",
+              "condition": "dateTime:lte"
+            }
+          ]
+        }
+      },
+      "id": "get_pending_emails",
+      "name": "Get Pending Emails",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        450,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "Supabase JeweledTech"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Generate email content based on template\nconst email = $json;\nconst templates = {\n  followup_3_days: {\n    html: `\n      <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>\n        <h2>Quick question about your AI workforce proposal</h2>\n        \n        <p>Hi there,</p>\n        \n        <p>I wanted to check in and see if you had a chance to review the AI workforce proposal we sent for <strong>${email.company_name}</strong>.</p>\n        \n        <p>I noticed you were particularly interested in ${getInterest(email)}. Many of our clients see immediate ROI in this area.</p>\n        \n        <p><strong>Do you have 15 minutes this week for a quick call?</strong> I'd love to answer any questions and show you exactly how this would work for your team.</p>\n        \n        <div style='text-align: center; margin: 30px 0;'>\n          <a href='https://calendly.com/jeweledtech/strategy-call' style='background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block;'>Book 15-Min Call</a>\n        </div>\n        \n        <p>Best regards,<br>\n        The JeweledTech AI Team</p>\n      </div>\n    `\n  },\n  followup_7_days: {\n    html: `\n      <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>\n        <h2>How ${email.subject.match(/How (.*) automated/)[1]} saved 20 hours/week with AI</h2>\n        \n        <p>Hi there,</p>\n        \n        <p>I thought you'd be interested in how a company similar to ${email.company_name} transformed their operations with our AI workforce.</p>\n        \n        <div style='background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;'>\n          <h3>The Challenge:</h3>\n          <p>Manual processes were consuming 60% of their team's time</p>\n          \n          <h3>The Solution:</h3>\n          <p>AI agents handling repetitive tasks across departments</p>\n          \n          <h3>The Results:</h3>\n          <ul>\n            <li>20 hours/week saved per employee</li>\n            <li>73% faster response times</li>\n            <li>$250K annual savings</li>\n          </ul>\n        </div>\n        \n        <p><strong>Want to see similar results?</strong> Let's discuss your specific use case.</p>\n        \n        <div style='text-align: center; margin: 30px 0;'>\n          <a href='https://calendly.com/jeweledtech/strategy-call' style='background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block;'>See How It Works</a>\n        </div>\n        \n        <p>Best regards,<br>\n        The JeweledTech AI Team</p>\n      </div>\n    `\n  },\n  followup_14_days: {\n    html: `\n      <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>\n        <h2>Your AI proposal expires in 16 days ⏰</h2>\n        \n        <p>Hi there,</p>\n        \n        <p>I wanted to remind you that the custom AI workforce proposal for <strong>${email.company_name}</strong> is only valid for 30 days.</p>\n        \n        <div style='background: #fff3cd; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107;'>\n          <h3>What happens when proposals expire:</h3>\n          <ul>\n            <li>Pricing may increase (AI costs are rising industry-wide)</li>\n            <li>Implementation timeline gets pushed back</li>\n            <li>Your specific use case needs re-assessment</li>\n          </ul>\n        </div>\n        \n        <p><strong>Don't let this opportunity pass by.</strong> Even if you're not ready to start immediately, let's at least lock in your pricing and timeline.</p>\n        \n        <div style='text-align: center; margin: 30px 0;'>\n          <a href='https://calendly.com/jeweledtech/strategy-call' style='background: #ffc107; color: #000; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;'>Reserve Your Spot</a>\n        </div>\n        \n        <p>Best regards,<br>\n        The JeweledTech AI Team</p>\n      </div>\n    `\n  },\n  followup_28_days: {\n    html: `\n      <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>\n        <h2>Final reminder: Your AI proposal expires in 2 days 🚨</h2>\n        \n        <p>Hi there,</p>\n        \n        <p>This is the final reminder that your custom AI workforce proposal for <strong>${email.company_name}</strong> expires in just 2 days.</p>\n        \n        <div style='background: #f8d7da; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #dc3545;'>\n          <h3>After expiration:</h3>\n          <ul>\n            <li>You'll need a new assessment (2-week process)</li>\n            <li>Pricing will increase by 15-20%</li>\n            <li>Implementation slots won't be available until next quarter</li>\n          </ul>\n        </div>\n        \n        <p><strong>This is your last chance to lock in current pricing and priority implementation.</strong></p>\n        \n        <p>If you have any concerns or questions holding you back, please reply to this email. I'm here to help.</p>\n        \n        <div style='text-align: center; margin: 30px 0;'>\n          <a href='https://calendly.com/jeweledtech/strategy-call' style='background: #dc3545; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;'>Book Urgent Call</a>\n        </div>\n        \n        <p>Don't miss out on transforming your business with AI.</p>\n        \n        <p>Best regards,<br>\n        The JeweledTech AI Team</p>\n      </div>\n    `\n  }\n};\n\nfunction getInterest(email) {\n  // Mock function - in reality, would pull from assessment data\n  return 'automating customer service and sales processes';\n}\n\nconst template = templates[email.template] || templates.followup_3_days;\n\nreturn [{\n  json: {\n    ...email,\n    email_html: template.html,\n    email_subject: email.subject\n  }\n}];"
+      },
+      "id": "generate_email_content",
+      "name": "Generate Email Content",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        650,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.resend.com/emails",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"from\": \"{{ $env.FROM_EMAIL || 'JeweledTech <admin@jeweledtech.com>' }}\",\n  \"to\": [\"{{ $json.contact_email }}\"],\n  \"subject\": \"{{ $json.email_subject }}\",\n  \"html\": \"{{ $json.email_html }}\",\n  \"reply_to\": \"{{ $env.REPLY_TO_EMAIL || 'admin@jeweledtech.com' }}\",\n  \"tags\": [\n    {\n      \"name\": \"campaign\",\n      \"value\": \"proposal_nurture\"\n    },\n    {\n      \"name\": \"day\",\n      \"value\": \"{{ $json.delay_days }}\"\n    },\n    {\n      \"name\": \"proposal_id\",\n      \"value\": \"{{ $json.proposal_id }}\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "send_nurture_email",
+      "name": "Send Nurture Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        850,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "resend_api",
+          "name": "Resend API"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "resource": "row",
+        "operation": "update",
+        "tableId": "email_nurture_queue",
+        "id": "={{ $json.id }}",
+        "updateFields": {
+          "status": "sent",
+          "sent_at": "={{ $now.toISO() }}",
+          "resend_id": "={{ $node['Send Nurture Email'].json.id || 'error' }}",
+          "error": "={{ $node['Send Nurture Email'].error ? $node['Send Nurture Email'].error.message : null }}"
+        }
+      },
+      "id": "update_queue_status",
+      "name": "Update Queue Status",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "1",
+          "name": "Supabase JeweledTech"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Summary of emails sent\nconst totalEmails = $items.length;\nconst successCount = $items.filter(item => item.json.status === 'sent' && !item.json.error).length;\nconst errorCount = totalEmails - successCount;\n\nreturn [{\n  json: {\n    execution_time: new Date().toISOString(),\n    total_processed: totalEmails,\n    success_count: successCount,\n    error_count: errorCount,\n    next_run: new Date(Date.now() + 3600000).toISOString() // 1 hour\n  }\n}];"
+      },
+      "id": "execution_summary",
+      "name": "Execution Summary",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1250,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Every Hour": {
+      "main": [
+        [
+          {
+            "node": "Get Pending Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Pending Emails": {
+      "main": [
+        [
+          {
+            "node": "Generate Email Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Email Content": {
+      "main": [
+        [
+          {
+            "node": "Send Nurture Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Nurture Email": {
+      "main": [
+        [
+          {
+            "node": "Update Queue Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Queue Status": {
+      "main": [
+        [
+          {
+            "node": "Execution Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateId": "phase5-nurture-email-sender"
+  },
+  "pinData": {}
+}

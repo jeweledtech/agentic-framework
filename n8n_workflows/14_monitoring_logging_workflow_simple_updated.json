@@ -1,0 +1,204 @@
+{
+  "name": "Monitoring and Logging Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "healthCheckInterval",
+              "value": "300000"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "config",
+      "name": "Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Define workflows to monitor\nconst workflows = [\n  { name: 'Main API Gateway', webhook: 'main-api', type: 'critical' },\n  { name: 'Chief AI Agent', webhook: 'chief-ai-agent', type: 'critical' },\n  { name: 'Sales Department', webhook: 'sales-department', type: 'normal' },\n  { name: 'Marketing Department', webhook: 'marketing-department', type: 'normal' },\n  { name: 'Engineering Department', webhook: 'engineering-department', type: 'normal' },\n  { name: 'Customer Department', webhook: 'customer-department', type: 'normal' },\n  { name: 'Back Office Department', webhook: 'backoffice-department', type: 'normal' },\n  { name: 'Security Department', webhook: 'security-department', type: 'critical' },\n  { name: 'Error Handling', webhook: 'error-handling', type: 'critical' }\n];\n\nreturn workflows;"
+      },
+      "id": "define_workflows",
+      "name": "Define Workflows",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.N8N_WEBHOOK_URL }}/webhook/{{ $json.webhook }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "health_check",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "health_check",
+      "name": "Health Check",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [650, 300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process health check results\nconst workflow = $input.item.json;\nconst response = $input.item.json;\nconst responseTime = $input.item.responseTime || 0;\n\n// Determine health status\nlet status = 'healthy';\nlet healthScore = 100;\nlet issues = [];\n\nif (response.error) {\n  status = 'unhealthy';\n  healthScore = 0;\n  issues.push(`Error: ${response.error.message || 'Unknown error'}`);\n} else if (responseTime > 3000) {\n  status = 'degraded';\n  healthScore = 70;\n  issues.push(`Slow response: ${responseTime}ms`);\n}\n\n// Create health record\nconst healthRecord = {\n  timestamp: new Date().toISOString(),\n  workflow: workflow.name,\n  type: workflow.type,\n  status: status,\n  healthScore: healthScore,\n  responseTime: responseTime,\n  issues: issues,\n  details: response\n};\n\nreturn healthRecord;"
+      },
+      "id": "process_health",
+      "name": "Process Health Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aggregate all health checks\nconst healthRecords = $input.all().map(item => item.json);\n\n// Calculate overall system health\nconst totalScore = healthRecords.reduce((sum, record) => sum + record.healthScore, 0);\nconst avgScore = totalScore / healthRecords.length;\n\n// Count statuses\nconst statusCounts = healthRecords.reduce((counts, record) => {\n  counts[record.status] = (counts[record.status] || 0) + 1;\n  return counts;\n}, {});\n\n// Create dashboard\nconst dashboard = {\n  timestamp: new Date().toISOString(),\n  overall: {\n    health: avgScore,\n    status: avgScore >= 90 ? 'healthy' : avgScore >= 70 ? 'degraded' : 'unhealthy',\n    totalWorkflows: healthRecords.length,\n    healthy: statusCounts.healthy || 0,\n    degraded: statusCounts.degraded || 0,\n    unhealthy: statusCounts.unhealthy || 0\n  },\n  workflows: healthRecords,\n  alerts: healthRecords.filter(r => r.status !== 'healthy').map(r => ({\n    workflow: r.workflow,\n    status: r.status,\n    issues: r.issues\n  }))\n};\n\nreturn dashboard;"
+      },
+      "id": "create_dashboard",
+      "name": "Create Health Dashboard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.overall.health < 80 }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check_alerts",
+      "name": "Check Alert Conditions",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_URL }}/webhook/notifications",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "type",
+              "value": "system_alert"
+            },
+            {
+              "name": "severity",
+              "value": "={{ $json.overall.status === 'unhealthy' ? 'critical' : 'warning' }}"
+            },
+            {
+              "name": "message",
+              "value": "=System health degraded: {{ $json.overall.status }}"
+            },
+            {
+              "name": "details",
+              "value": "={{ $json }}"
+            }
+          ]
+        }
+      },
+      "id": "send_alert",
+      "name": "Send Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1450, 250]
+    }
+  ],
+  "connections": {
+    "config": {
+      "main": [
+        [
+          {
+            "node": "define_workflows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "define_workflows": {
+      "main": [
+        [
+          {
+            "node": "health_check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "health_check": {
+      "main": [
+        [
+          {
+            "node": "process_health",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "process_health": {
+      "main": [
+        [
+          {
+            "node": "create_dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "create_dashboard": {
+      "main": [
+        [
+          {
+            "node": "check_alerts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check_alerts": {
+      "main": [
+        [
+          {
+            "node": "send_alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2024-01-20T12:00:00.000Z",
+  "versionId": "1.0"
+}

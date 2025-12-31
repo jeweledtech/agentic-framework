@@ -1,0 +1,272 @@
+{
+  "name": "Customer - Freshdesk Integration",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "customer-support",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook_support",
+      "name": "Customer Support Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "webhookId": "customer-support"
+    },
+    {
+      "parameters": {
+        "url": "https://api.jeweledtech.com/chat",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "message",
+              "value": "={{ $json.body.message }}"
+            },
+            {
+              "name": "channel",
+              "value": "Customer Support"
+            }
+          ]
+        }
+      },
+      "id": "call_customer_agent",
+      "name": "Call Customer Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Parse agent response for support actions\nconst agentResponse = $input.all()[0].json.text;\nconst actions = [];\n\n// Check for ticket creation\nif (agentResponse.toLowerCase().includes('create ticket') || \n    agentResponse.toLowerCase().includes('support ticket') ||\n    agentResponse.toLowerCase().includes('log issue')) {\n  actions.push({\n    type: 'create_ticket',\n    data: {\n      email: $json.body.customer_email || 'customer@example.com',\n      subject: extractSubject(agentResponse),\n      description: agentResponse,\n      priority: extractPriority(agentResponse),\n      status: 2 // Open\n    }\n  });\n}\n\n// Check for Slack notification\nif (agentResponse.toLowerCase().includes('notify team') || \n    agentResponse.toLowerCase().includes('alert team')) {\n  actions.push({\n    type: 'slack_notify',\n    data: {\n      channel: '#customer-support',\n      message: `\ud83c\udfab New support issue: ${extractSubject(agentResponse)}`\n    }\n  });\n}\n\nreturn actions.length > 0 ? actions : [{ json: { type: 'none', response: agentResponse } }];\n\nfunction extractSubject(text) {\n  // Extract subject from response\n  if (text.includes('login')) return 'Login Issue';\n  if (text.includes('payment')) return 'Payment Problem';\n  if (text.includes('bug')) return 'Bug Report';\n  return 'Customer Support Request';\n}\n\nfunction extractPriority(text) {\n  if (text.toLowerCase().includes('urgent') || text.toLowerCase().includes('critical')) return 4;\n  if (text.toLowerCase().includes('high')) return 3;\n  if (text.toLowerCase().includes('low')) return 1;\n  return 2; // Medium\n}"
+      },
+      "id": "parse_support_actions",
+      "name": "Parse Support Actions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        650,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.type }}",
+              "operation": "equal",
+              "value2": "create_ticket"
+            }
+          ]
+        }
+      },
+      "id": "if_create_ticket",
+      "name": "If Create Ticket",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        850,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "apiKey",
+        "resource": "ticket",
+        "operation": "create",
+        "email": "={{ $json.data.email }}",
+        "subject": "={{ $json.data.subject }}",
+        "description": "={{ $json.data.description }}",
+        "priority": "={{ $json.data.priority }}",
+        "status": "={{ $json.data.status }}"
+      },
+      "id": "freshdesk_create",
+      "name": "Create Freshdesk Ticket",
+      "type": "n8n-nodes-base.freshdesk",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        150
+      ],
+      "credentials": {
+        "freshdeskApi": {
+          "id": "3",
+          "name": "Freshdesk API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.type }}",
+              "operation": "equal",
+              "value2": "slack_notify"
+            }
+          ]
+        }
+      },
+      "id": "if_slack_notify",
+      "name": "If Slack Notify",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        850,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "message",
+        "operation": "post",
+        "channel": "={{ $json.data.channel }}",
+        "text": "={{ $json.data.message }}",
+        "otherOptions": {
+          "mrkdwn": true
+        }
+      },
+      "id": "slack_post",
+      "name": "Post to Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [
+        1050,
+        350
+      ],
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "4",
+          "name": "Slack OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Format comprehensive results\nconst results = [];\nconst inputs = $input.all();\n\nfor (const item of inputs) {\n  if (item.json.id) {\n    // Freshdesk ticket created\n    results.push({\n      success: true,\n      type: 'ticket_created',\n      ticket_id: item.json.id,\n      ticket_url: `https://techintelligencetraining.freshdesk.com/helpdesk/tickets/${item.json.id}`,\n      message: `Support ticket #${item.json.id} created in Freshdesk`\n    });\n  } else if (item.json.ts) {\n    // Slack message posted\n    results.push({\n      success: true,\n      type: 'slack_notified',\n      timestamp: item.json.ts,\n      message: 'Team notified via Slack'\n    });\n  } else {\n    results.push({\n      success: true,\n      type: 'response_only',\n      message: item.json.response || 'Customer agent provided response'\n    });\n  }\n}\n\nreturn [{ \n  json: { \n    results: results, \n    summary: `Processed ${results.length} action(s) for customer support`,\n    original_request: $node[\"Customer Support Webhook\"].json.body \n  } \n}];"
+      },
+      "id": "format_support_results",
+      "name": "Format Support Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1250,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Customer Support Webhook": {
+      "main": [
+        [
+          {
+            "node": "Call Customer Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Customer Agent": {
+      "main": [
+        [
+          {
+            "node": "Parse Support Actions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Support Actions": {
+      "main": [
+        [
+          {
+            "node": "If Create Ticket",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If Slack Notify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Create Ticket": {
+      "main": [
+        [
+          {
+            "node": "Create Freshdesk Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Support Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Slack Notify": {
+      "main": [
+        [
+          {
+            "node": "Post to Slack",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Support Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Freshdesk Ticket": {
+      "main": [
+        [
+          {
+            "node": "Format Support Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to Slack": {
+      "main": [
+        [
+          {
+            "node": "Format Support Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

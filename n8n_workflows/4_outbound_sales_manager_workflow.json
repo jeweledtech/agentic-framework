@@ -1,0 +1,264 @@
+{
+  "name": "Outbound Sales Manager - Specialized Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "outbound-sales-manager",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "webhook_outbound",
+      "name": "Outbound Manager Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 400],
+      "webhookId": "outbound-sales-manager"
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "jsCode": "// Parse incoming request\nconst body = JSON.parse($input.all()[0].json.body);\nconst taskType = body.salesAnalysis.taskType;\nconst message = body.originalMessage;\n\n// Initialize task execution context\nlet executionPlan = {\n  task: taskType,\n  steps: [],\n  tools: [],\n  knowledgeNeeded: []\n};\n\n// Define execution plans based on task type\nswitch(taskType) {\n  case 'email_campaign':\n    executionPlan.steps = [\n      'Identify target audience from ICP',\n      'Generate email templates',\n      'Set up email sequence',\n      'Configure tracking'\n    ];\n    executionPlan.tools = ['email_templates_kb', 'crm_integration', 'email_automation'];\n    executionPlan.knowledgeNeeded = ['sales_email_templates', 'icp_definition', 'outbound_playbook'];\n    break;\n    \n  case 'lead_generation':\n    executionPlan.steps = [\n      'Define target criteria',\n      'Search lead databases',\n      'Enrich contact information',\n      'Score and prioritize leads'\n    ];\n    executionPlan.tools = ['lead_database', 'data_enrichment', 'lead_scoring'];\n    executionPlan.knowledgeNeeded = ['icp_definition', 'lead_scoring_criteria', 'outbound_playbook'];\n    break;\n    \n  case 'sequence_creation':\n    executionPlan.steps = [\n      'Define sequence objectives',\n      'Create touchpoint schedule',\n      'Write sequence messages',\n      'Set up automation rules'\n    ];\n    executionPlan.tools = ['sequence_builder', 'email_templates_kb', 'crm_integration'];\n    executionPlan.knowledgeNeeded = ['sequence_best_practices', 'email_templates', 'outbound_playbook'];\n    break;\n    \n  default:\n    executionPlan.steps = ['Analyze request', 'Provide guidance', 'Suggest next steps'];\n    executionPlan.tools = ['knowledge_base', 'crm_integration'];\n    executionPlan.knowledgeNeeded = ['outbound_playbook', 'sales_processes'];\n}\n\nreturn [{\n  json: {\n    ...body,\n    executionPlan: executionPlan,\n    agentContext: {\n      role: 'Outbound Sales Manager',\n      specialization: 'Cold outreach and lead generation',\n      currentTask: taskType\n    }\n  }\n}];"
+      },
+      "id": "plan_execution",
+      "name": "Plan Task Execution",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 400]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.executionPlan.task }}",
+                    "rightValue": "email_campaign",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "EmailCampaign"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.executionPlan.task }}",
+                    "rightValue": "lead_generation",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "LeadGeneration"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.executionPlan.task }}",
+                    "rightValue": "sequence_creation",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "SequenceCreation"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "route_task",
+      "name": "Route by Task Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [650, 400]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "jsCode": "// Execute Email Campaign Task\nconst data = $input.all()[0].json;\nconst message = data.originalMessage;\n\n// Simulate knowledge base query for email templates\nconst emailTemplates = {\n  'cold_outreach': {\n    subject: 'Quick question about [Company]',\n    body: 'Hi [FirstName], I noticed [Trigger]. Curious if [Value Prop] would be helpful...'\n  },\n  'follow_up': {\n    subject: 'Following up on my previous email',\n    body: 'Hi [FirstName], Just wanted to follow up on my previous email...'\n  },\n  'break_up': {\n    subject: 'Should I close your file?',\n    body: 'Hi [FirstName], I haven\\'t heard back from you...'\n  }\n};\n\n// Generate campaign plan\nconst campaignPlan = {\n  name: `Outbound Campaign - ${new Date().toISOString().split('T')[0]}`,\n  target_audience: 'Based on ICP: B2B SaaS companies, 50-200 employees',\n  sequence: [\n    { day: 0, type: 'cold_outreach', channel: 'email' },\n    { day: 3, type: 'follow_up', channel: 'email' },\n    { day: 7, type: 'linkedin', channel: 'social' },\n    { day: 14, type: 'break_up', channel: 'email' }\n  ],\n  templates: emailTemplates,\n  estimated_reach: 500,\n  expected_response_rate: '15-20%'\n};\n\nreturn [{\n  json: {\n    messageId: data.messageId,\n    response: `I've created an outbound email campaign plan based on your request: \"${message}\"\\n\\nCampaign Details:\\n- Target: ${campaignPlan.target_audience}\\n- Sequence: ${campaignPlan.sequence.length} touchpoints over 14 days\\n- Estimated reach: ${campaignPlan.estimated_reach} prospects\\n- Expected response rate: ${campaignPlan.expected_response_rate}\\n\\nI've prepared email templates following our proven outbound playbook. The campaign includes initial outreach, follow-ups, LinkedIn touchpoints, and a break-up email. Would you like me to proceed with setting this up in our CRM and email automation system?`,\n    executingAgent: 'outbound_sales_manager',\n    subAgent: 'email_outreach_agent',\n    taskType: 'email_campaign',\n    campaignPlan: campaignPlan,\n    metrics: {\n      templates_created: Object.keys(emailTemplates).length,\n      sequence_length: campaignPlan.sequence.length,\n      estimated_reach: campaignPlan.estimated_reach\n    }\n  }\n}];"
+      },
+      "id": "execute_email_campaign",
+      "name": "Execute Email Campaign",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "jsCode": "// Execute Lead Generation Task\nconst data = $input.all()[0].json;\nconst message = data.originalMessage;\n\n// Simulate ICP-based lead generation\nconst leadGenerationResults = {\n  criteria: {\n    industry: 'B2B SaaS',\n    company_size: '50-200 employees',\n    geography: 'North America',\n    technologies: ['Salesforce', 'HubSpot', 'Slack'],\n    job_titles: ['VP Sales', 'Director of Sales', 'Sales Manager']\n  },\n  leads_found: 127,\n  quality_score: 'A',\n  sample_leads: [\n    {\n      name: 'John Smith',\n      title: 'VP Sales',\n      company: 'TechCorp Inc',\n      linkedin: '/in/johnsmith',\n      email_pattern: 'first.last@company.com'\n    },\n    {\n      name: 'Sarah Johnson',\n      title: 'Director of Sales',\n      company: 'SaaS Solutions Ltd',\n      linkedin: '/in/sarahjohnson',\n      email_pattern: 'first@company.com'\n    }\n  ],\n  next_steps: [\n    'Enrich contact information',\n    'Verify email addresses',\n    'Import to CRM',\n    'Begin outreach sequence'\n  ]\n};\n\nreturn [{\n  json: {\n    messageId: data.messageId,\n    response: `I've completed lead generation based on your request: \"${message}\"\\n\\nLead Generation Results:\\n- Total leads found: ${leadGenerationResults.leads_found}\\n- Quality score: ${leadGenerationResults.quality_score}\\n- Target criteria: ${leadGenerationResults.criteria.industry}, ${leadGenerationResults.criteria.company_size}\\n- Key titles: ${leadGenerationResults.criteria.job_titles.join(', ')}\\n\\nI've identified high-quality prospects matching our ICP. The leads have been scored and prioritized based on fit and engagement likelihood. \\n\\nNext steps:\\n${leadGenerationResults.next_steps.map((step, i) => `${i+1}. ${step}`).join('\\n')}\\n\\nWould you like me to proceed with enriching these contacts and importing them to our CRM?`,\n    executingAgent: 'outbound_sales_manager',\n    subAgent: 'lead_generation_agent',\n    taskType: 'lead_generation',\n    results: leadGenerationResults,\n    metrics: {\n      leads_generated: leadGenerationResults.leads_found,\n      quality_score: leadGenerationResults.quality_score,\n      criteria_used: Object.keys(leadGenerationResults.criteria).length\n    }\n  }\n}];"
+      },
+      "id": "execute_lead_gen",
+      "name": "Execute Lead Generation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 400]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "jsCode": "// Execute Sequence Creation Task\nconst data = $input.all()[0].json;\nconst message = data.originalMessage;\n\n// Create outreach sequence\nconst sequenceDesign = {\n  name: 'Multi-Channel Outbound Sequence',\n  objective: 'Book qualified demos with target accounts',\n  duration: '21 days',\n  touchpoints: 8,\n  channels: ['Email', 'LinkedIn', 'Phone'],\n  sequence_flow: [\n    { day: 0, channel: 'Email', action: 'Initial outreach with value prop' },\n    { day: 2, channel: 'LinkedIn', action: 'Connection request with personalized note' },\n    { day: 4, channel: 'Email', action: 'Follow-up with case study' },\n    { day: 7, channel: 'Phone', action: 'Quick discovery call attempt' },\n    { day: 10, channel: 'Email', action: 'Share relevant content/insight' },\n    { day: 14, channel: 'LinkedIn', action: 'Engage with their content' },\n    { day: 17, channel: 'Email', action: 'Offer specific value/demo' },\n    { day: 21, channel: 'Email', action: 'Break-up email' }\n  ],\n  automation_rules: [\n    'Stop sequence on reply',\n    'Mark as interested on link click',\n    'Alert rep on high engagement',\n    'Auto-schedule follow-up tasks'\n  ],\n  expected_results: {\n    response_rate: '18-25%',\n    meeting_rate: '8-12%',\n    opportunity_rate: '3-5%'\n  }\n};\n\nreturn [{\n  json: {\n    messageId: data.messageId,\n    response: `I've designed a multi-channel outreach sequence based on your request: \"${message}\"\\n\\nSequence Overview:\\n- Name: ${sequenceDesign.name}\\n- Duration: ${sequenceDesign.duration}\\n- Touchpoints: ${sequenceDesign.touchpoints} across ${sequenceDesign.channels.join(', ')}\\n- Objective: ${sequenceDesign.objective}\\n\\nSequence Flow:\\n${sequenceDesign.sequence_flow.map(touch => `Day ${touch.day} - ${touch.channel}: ${touch.action}`).join('\\n')}\\n\\nAutomation Rules:\\n${sequenceDesign.automation_rules.map(rule => `• ${rule}`).join('\\n')}\\n\\nExpected Performance:\\n- Response rate: ${sequenceDesign.expected_results.response_rate}\\n- Meeting rate: ${sequenceDesign.expected_results.meeting_rate}\\n- Opportunity rate: ${sequenceDesign.expected_results.opportunity_rate}\\n\\nThis sequence follows our proven outbound playbook and includes multiple touchpoints across different channels. Ready to implement?`,\n    executingAgent: 'outbound_sales_manager',\n    subAgent: 'sequence_automation_agent',\n    taskType: 'sequence_creation',\n    sequenceDesign: sequenceDesign,\n    metrics: {\n      touchpoints: sequenceDesign.touchpoints,\n      channels: sequenceDesign.channels.length,\n      duration_days: 21\n    }\n  }\n}];"
+      },
+      "id": "execute_sequence",
+      "name": "Execute Sequence Creation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 500]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "jsCode": "// General Outbound Sales Guidance\nconst data = $input.all()[0].json;\nconst message = data.originalMessage;\n\n// Access outbound sales playbook knowledge\nconst outboundGuidance = {\n  best_practices: [\n    'Personalization is key - reference specific triggers',\n    'Lead with value, not features',\n    'Keep emails short (< 150 words)',\n    'Use social proof and case studies',\n    'Multi-channel approach increases success'\n  ],\n  metrics_to_track: [\n    'Open rates (target: 30-40%)',\n    'Reply rates (target: 15-20%)',\n    'Meeting booked rate (target: 8-12%)',\n    'Pipeline generated',\n    'Revenue influenced'\n  ],\n  tools_available: [\n    'CRM (Salesforce/HubSpot)',\n    'Email automation (Outreach/SalesLoft)',\n    'Lead enrichment (ZoomInfo/Clearbit)',\n    'LinkedIn Sales Navigator',\n    'Call recording and coaching'\n  ]\n};\n\nreturn [{\n  json: {\n    messageId: data.messageId,\n    response: `As your Outbound Sales Manager, I'm here to help with: \"${message}\"\\n\\nBased on our outbound sales playbook, here's my guidance:\\n\\nBest Practices for Outbound Success:\\n${outboundGuidance.best_practices.map(practice => `• ${practice}`).join('\\n')}\\n\\nKey Metrics to Track:\\n${outboundGuidance.metrics_to_track.map(metric => `• ${metric}`).join('\\n')}\\n\\nAvailable Tools & Resources:\\n${outboundGuidance.tools_available.map(tool => `• ${tool}`).join('\\n')}\\n\\nI can help you with:\\n- Creating targeted outbound campaigns\\n- Generating qualified leads\\n- Building multi-touch sequences\\n- Optimizing email templates\\n- Improving response rates\\n\\nWhat specific aspect of outbound sales would you like to focus on?`,\n    executingAgent: 'outbound_sales_manager',\n    taskType: 'general_guidance',\n    guidance: outboundGuidance\n  }\n}];"
+      },
+      "id": "general_guidance",
+      "name": "General Outbound Guidance",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 600]
+    },
+    {
+      "parameters": {
+        "values": {
+          "values": [
+            {
+              "name": "originalData",
+              "value": "={{ $json }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "merge_context",
+      "name": "Merge Context",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [1050, 400]
+    }
+  ],
+  "connections": {
+    "Outbound Manager Webhook": {
+      "main": [
+        [
+          {
+            "node": "Plan Task Execution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan Task Execution": {
+      "main": [
+        [
+          {
+            "node": "Route by Task Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Task Type": {
+      "main": [
+        [
+          {
+            "node": "Execute Email Campaign",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Execute Lead Generation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Execute Sequence Creation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "General Outbound Guidance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Email Campaign": {
+      "main": [
+        [
+          {
+            "node": "Merge Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Lead Generation": {
+      "main": [
+        [
+          {
+            "node": "Merge Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Sequence Creation": {
+      "main": [
+        [
+          {
+            "node": "Merge Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "General Outbound Guidance": {
+      "main": [
+        [
+          {
+            "node": "Merge Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "instanceId": "outbound-sales-manager-agent"
+  }
+}

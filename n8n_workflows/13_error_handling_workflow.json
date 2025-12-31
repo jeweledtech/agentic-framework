@@ -1,0 +1,441 @@
+{
+  "name": "Error Handling - Retry and Recovery",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "error-handler",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "id": "webhook_error",
+      "name": "Error Handler Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 400],
+      "webhookId": "error-handler"
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "jsCode": "// Parse error information\nconst errorData = $input.all()[0].json.body;\nconst errorType = errorData.errorType || 'unknown';\nconst errorMessage = errorData.errorMessage || 'No error message provided';\nconst sourceWorkflow = errorData.sourceWorkflow || 'unknown';\nconst sourceNode = errorData.sourceNode || 'unknown';\nconst originalRequest = errorData.originalRequest || {};\nconst timestamp = errorData.timestamp || new Date().toISOString();\nconst retryCount = errorData.retryCount || 0;\n\n// Classify error severity and type\nlet severity = 'medium';\nlet category = 'general';\nlet isRetryable = true;\nlet maxRetries = 3;\n\n// Determine error category and severity\nif (errorMessage.toLowerCase().includes('timeout') || errorMessage.toLowerCase().includes('timed out')) {\n  category = 'timeout';\n  severity = 'low';\n  isRetryable = true;\n  maxRetries = 5;\n} else if (errorMessage.toLowerCase().includes('unauthorized') || errorMessage.toLowerCase().includes('401')) {\n  category = 'authentication';\n  severity = 'high';\n  isRetryable = false;\n} else if (errorMessage.toLowerCase().includes('rate limit') || errorMessage.toLowerCase().includes('429')) {\n  category = 'rate_limit';\n  severity = 'medium';\n  isRetryable = true;\n  maxRetries = 10;\n} else if (errorMessage.toLowerCase().includes('not found') || errorMessage.toLowerCase().includes('404')) {\n  category = 'not_found';\n  severity = 'medium';\n  isRetryable = false;\n} else if (errorMessage.toLowerCase().includes('server error') || errorMessage.toLowerCase().includes('500')) {\n  category = 'server_error';\n  severity = 'high';\n  isRetryable = true;\n  maxRetries = 3;\n} else if (errorMessage.toLowerCase().includes('connection') || errorMessage.toLowerCase().includes('network')) {\n  category = 'network';\n  severity = 'medium';\n  isRetryable = true;\n  maxRetries = 5;\n} else if (errorMessage.toLowerCase().includes('validation') || errorMessage.toLowerCase().includes('invalid')) {\n  category = 'validation';\n  severity = 'low';\n  isRetryable = false;\n}\n\n// Calculate retry delay (exponential backoff)\nconst baseDelay = 1000; // 1 second\nconst retryDelay = Math.min(baseDelay * Math.pow(2, retryCount), 60000); // Max 60 seconds\n\nreturn [{\n  json: {\n    errorId: `err_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,\n    errorType: errorType,\n    errorMessage: errorMessage,\n    sourceWorkflow: sourceWorkflow,\n    sourceNode: sourceNode,\n    originalRequest: originalRequest,\n    timestamp: timestamp,\n    retryCount: retryCount,\n    classification: {\n      category: category,\n      severity: severity,\n      isRetryable: isRetryable,\n      maxRetries: maxRetries,\n      retryDelay: retryDelay\n    },\n    recoveryStrategy: isRetryable && retryCount < maxRetries ? 'retry' : 'fallback'\n  }\n}];"
+      },
+      "id": "classify_error",
+      "name": "Classify Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.recoveryStrategy }}",
+              "operation": "equals",
+              "value2": "retry"
+            }
+          ]
+        }
+      },
+      "id": "check_strategy",
+      "name": "Should Retry?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 400]
+    },
+    {
+      "parameters": {
+        "value": "={{ $json.classification.retryDelay }}",
+        "unit": "ms"
+      },
+      "id": "wait_backoff",
+      "name": "Wait (Backoff)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "jsCode": "// Prepare retry request\nconst data = $input.all()[0].json;\n\n// Increment retry count\nconst newRetryCount = data.retryCount + 1;\n\n// Log retry attempt\nconsole.log(`[Error Handler] Retrying ${data.sourceWorkflow} - Attempt ${newRetryCount}/${data.classification.maxRetries}`);\n\n// Prepare retry payload\nconst retryPayload = {\n  ...data.originalRequest,\n  _retry: {\n    attempt: newRetryCount,\n    previousError: data.errorMessage,\n    errorId: data.errorId\n  }\n};\n\n// Add any necessary headers or modifications for retry\nif (data.classification.category === 'rate_limit') {\n  // Add delay header for rate limit\n  retryPayload._retry.rateLimit = true;\n} else if (data.classification.category === 'timeout') {\n  // Increase timeout for retry\n  retryPayload._retry.extendedTimeout = true;\n}\n\nreturn [{\n  json: {\n    targetWorkflow: data.sourceWorkflow,\n    retryPayload: retryPayload,\n    retryMetadata: {\n      errorId: data.errorId,\n      attempt: newRetryCount,\n      maxAttempts: data.classification.maxRetries,\n      category: data.classification.category,\n      originalError: data.errorMessage\n    }\n  }\n}];"
+      },
+      "id": "prepare_retry",
+      "name": "Prepare Retry",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_URL }}/webhook/{{ $json.targetWorkflow }}",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "",
+              "value": "={{ JSON.stringify($json.retryPayload) }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "execute_retry",
+      "name": "Execute Retry",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1250, 300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.error ? false : true }}",
+              "operation": "true"
+            }
+          ]
+        }
+      },
+      "id": "retry_success",
+      "name": "Retry Successful?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1450, 300]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "jsCode": "// Handle successful retry\nconst retryResponse = $input.all()[0].json;\n\nreturn [{\n  json: {\n    status: 'recovered',\n    errorId: retryResponse.retryMetadata?.errorId,\n    recoveryMethod: 'retry',\n    attempts: retryResponse.retryMetadata?.attempt,\n    response: retryResponse,\n    message: 'Error successfully recovered through retry',\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "success_response",
+      "name": "Success Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1650, 200]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "jsCode": "// Retry failed, prepare for another attempt or fallback\nconst failedRetry = $input.all()[0].json;\nconst errorData = $node[\"Classify Error\"].json;\n\n// Check if we should retry again\nconst currentAttempt = failedRetry.retryMetadata?.attempt || errorData.retryCount + 1;\nconst maxRetries = errorData.classification.maxRetries;\n\nif (currentAttempt < maxRetries) {\n  // Prepare for another retry\n  return [{\n    json: {\n      ...errorData,\n      retryCount: currentAttempt,\n      errorMessage: failedRetry.error?.message || 'Retry failed',\n      continueRetry: true\n    }\n  }];\n} else {\n  // Max retries reached, go to fallback\n  return [{\n    json: {\n      ...errorData,\n      retryCount: currentAttempt,\n      errorMessage: failedRetry.error?.message || 'Max retries exceeded',\n      continueRetry: false\n    }\n  }];\n}"
+      },
+      "id": "check_retry_limit",
+      "name": "Check Retry Limit",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1650, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.continueRetry }}",
+              "operation": "true"
+            }
+          ]
+        }
+      },
+      "id": "should_continue",
+      "name": "Continue Retry?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1850, 400]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "jsCode": "// Implement fallback strategy\nconst errorData = $input.all()[0].json;\nconst category = errorData.classification?.category || 'unknown';\n\nlet fallbackResponse = {\n  status: 'fallback',\n  errorId: errorData.errorId,\n  originalError: errorData.errorMessage,\n  category: category,\n  timestamp: new Date().toISOString()\n};\n\n// Category-specific fallback strategies\nswitch(category) {\n  case 'authentication':\n    fallbackResponse.message = 'Authentication failed. Please check credentials and re-authenticate.';\n    fallbackResponse.action = 'require_reauth';\n    fallbackResponse.userMessage = 'We need to refresh your authentication. Please log in again.';\n    break;\n    \n  case 'rate_limit':\n    fallbackResponse.message = 'Rate limit exceeded. Request has been queued for later processing.';\n    fallbackResponse.action = 'queue_for_later';\n    fallbackResponse.userMessage = 'Your request has been queued due to high demand. We\\'ll process it shortly.';\n    fallbackResponse.queueDelay = 300000; // 5 minutes\n    break;\n    \n  case 'not_found':\n    fallbackResponse.message = 'Resource not found. Providing alternative suggestions.';\n    fallbackResponse.action = 'provide_alternatives';\n    fallbackResponse.userMessage = 'We couldn\\'t find what you\\'re looking for. Here are some alternatives.';\n    fallbackResponse.alternatives = ['Check the resource ID', 'Verify permissions', 'Try a different search term'];\n    break;\n    \n  case 'validation':\n    fallbackResponse.message = 'Invalid input detected. Please check the request format.';\n    fallbackResponse.action = 'return_validation_errors';\n    fallbackResponse.userMessage = 'There was an issue with your request. Please check the following.';\n    fallbackResponse.validationTips = ['Ensure all required fields are provided', 'Check data types', 'Verify format requirements'];\n    break;\n    \n  case 'timeout':\n    fallbackResponse.message = 'Operation timed out. Switching to asynchronous processing.';\n    fallbackResponse.action = 'async_processing';\n    fallbackResponse.userMessage = 'This is taking longer than expected. We\\'ll process it in the background and notify you when complete.';\n    fallbackResponse.notificationMethod = 'email';\n    break;\n    \n  case 'server_error':\n    fallbackResponse.message = 'Server error encountered. Escalating to technical team.';\n    fallbackResponse.action = 'escalate';\n    fallbackResponse.userMessage = 'We\\'re experiencing technical difficulties. Our team has been notified.';\n    fallbackResponse.ticketId = `INC_${Date.now()}`;\n    break;\n    \n  default:\n    fallbackResponse.message = 'Unexpected error. Using generic fallback.';\n    fallbackResponse.action = 'generic_fallback';\n    fallbackResponse.userMessage = 'Something went wrong. Please try again later or contact support.';\n    fallbackResponse.supportInfo = {\n      email: 'support@company.com',\n      phone: '1-800-SUPPORT'\n    };\n}\n\n// Add notification if high severity\nif (errorData.classification?.severity === 'high') {\n  fallbackResponse.alert = {\n    type: 'immediate',\n    channels: ['slack', 'email'],\n    recipients: ['oncall@company.com', '#alerts-channel']\n  };\n}\n\nreturn [{\n  json: fallbackResponse\n}];"
+      },
+      "id": "fallback_strategy",
+      "name": "Fallback Strategy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 500]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_URL }}/webhook/error-logger",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "errorId",
+              "value": "={{ $json.errorId }}"
+            },
+            {
+              "name": "errorType",
+              "value": "={{ $json.errorType || 'unknown' }}"
+            },
+            {
+              "name": "severity",
+              "value": "={{ $json.classification?.severity || 'medium' }}"
+            },
+            {
+              "name": "category",
+              "value": "={{ $json.classification?.category || 'unknown' }}"
+            },
+            {
+              "name": "sourceWorkflow",
+              "value": "={{ $json.sourceWorkflow }}"
+            },
+            {
+              "name": "errorMessage",
+              "value": "={{ $json.errorMessage }}"
+            },
+            {
+              "name": "timestamp",
+              "value": "={{ $json.timestamp }}"
+            },
+            {
+              "name": "retryAttempts",
+              "value": "={{ $json.retryCount }}"
+            },
+            {
+              "name": "resolution",
+              "value": "={{ $json.status || 'unresolved' }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "log_error",
+      "name": "Log Error",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1250, 600],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.classification?.severity }}",
+              "operation": "equals",
+              "value2": "high"
+            }
+          ]
+        }
+      },
+      "id": "check_severity",
+      "name": "High Severity?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1050, 700]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "channelId": "={{ $env.SLACK_ALERTS_CHANNEL }}",
+        "text": "🚨 High Severity Error Alert",
+        "attachments": [
+          {
+            "color": "#ff0000",
+            "fields": {
+              "item": [
+                {
+                  "short": true,
+                  "title": "Error ID",
+                  "value": "={{ $json.errorId }}"
+                },
+                {
+                  "short": true,
+                  "title": "Workflow",
+                  "value": "={{ $json.sourceWorkflow }}"
+                },
+                {
+                  "short": false,
+                  "title": "Error Message",
+                  "value": "={{ $json.errorMessage }}"
+                },
+                {
+                  "short": true,
+                  "title": "Category",
+                  "value": "={{ $json.classification?.category }}"
+                },
+                {
+                  "short": true,
+                  "title": "Retry Attempts",
+                  "value": "={{ $json.retryCount }}"
+                }
+              ]
+            }
+          }
+        ],
+        "options": {}
+      },
+      "id": "alert_slack",
+      "name": "Alert Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.1,
+      "position": [1250, 700],
+      "continueOnFail": true
+    }
+  ],
+  "connections": {
+    "Error Handler Webhook": {
+      "main": [
+        [
+          {
+            "node": "Classify Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify Error": {
+      "main": [
+        [
+          {
+            "node": "Check Strategy",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should Retry?": {
+      "main": [
+        [
+          {
+            "node": "Wait (Backoff)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fallback Strategy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait (Backoff)": {
+      "main": [
+        [
+          {
+            "node": "Prepare Retry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Retry": {
+      "main": [
+        [
+          {
+            "node": "Execute Retry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Retry": {
+      "main": [
+        [
+          {
+            "node": "Retry Successful?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retry Successful?": {
+      "main": [
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Check Retry Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Retry Limit": {
+      "main": [
+        [
+          {
+            "node": "Continue Retry?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Continue Retry?": {
+      "main": [
+        [
+          {
+            "node": "Wait (Backoff)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fallback Strategy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Error": {
+      "main": [
+        [
+          {
+            "node": "High Severity?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "High Severity?": {
+      "main": [
+        [
+          {
+            "node": "Alert Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "instanceId": "error-handling-system"
+  }
+}

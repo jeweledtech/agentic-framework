@@ -1,0 +1,46 @@
+{
+  "name": "Webhook Diagnostic Test",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "test-debug",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook_debug",
+      "name": "Debug Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "debug-test"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Log all incoming data\nconst input = $input.all()[0];\nconsole.log('Raw input:', JSON.stringify(input, null, 2));\n\n// Check different data paths\nconst directIntegration = input.json?.integration;\nconst bodyIntegration = input.json?.body?.integration;\nconst queryIntegration = input.query?.integration;\n\nreturn [{\n  json: {\n    debug: {\n      hasDirectIntegration: !!directIntegration,\n      hasBodyIntegration: !!bodyIntegration,\n      hasQueryIntegration: !!queryIntegration,\n      directValue: directIntegration || 'not found',\n      bodyValue: bodyIntegration || 'not found',\n      queryValue: queryIntegration || 'not found',\n      fullInput: input\n    }\n  }\n}];"
+      },
+      "id": "debug_parser",
+      "name": "Debug Parser",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 300]
+    }
+  ],
+  "connections": {
+    "Debug Webhook": {
+      "main": [
+        [
+          {
+            "node": "Debug Parser",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

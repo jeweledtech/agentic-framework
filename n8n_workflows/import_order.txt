@@ -1,0 +1,29 @@
+# Import these workflows in order:
+# 
+# 1. Infrastructure & Error Handling (MUST BE FIRST)
+13_error_handling_workflow.json
+15_api_bridge_k8_connection.json
+
+# 2. Main Gateway
+1_main_api_workflow.json
+
+# 3. Core Services
+2_chief_ai_agent_workflow.json
+5_knowledge_base_integration_workflow.json
+6_mcp_integration_workflow.json
+
+# 4. Department Workflows
+3_sales_department_workflow.json
+4_outbound_sales_manager_workflow.json
+7_inbound_sales_manager_workflow.json
+8_marketing_department_workflow.json
+9_engineering_department_workflow.json
+10_customer_department_workflow.json
+11_backoffice_department_workflow.json
+12_security_department_workflow.json
+
+# 5. Monitoring & Logging
+14_monitoring_logging_workflow_fixed.json
+
+# 6. Assessment Workflow (if using)
+# NEW_CLIENT_ASSESSMENT_TEMPLATE.json

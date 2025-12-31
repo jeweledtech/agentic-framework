@@ -1,0 +1,309 @@
+{
+  "name": "Inbound Sales Manager - Specialized Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "inbound-sales-manager",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "webhook_inbound",
+      "name": "Inbound Manager Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 400],
+      "webhookId": "inbound-sales-manager"
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "jsCode": "// Parse incoming request\nconst body = JSON.parse($input.all()[0].json.body);\nconst taskType = body.salesAnalysis?.taskType || 'inbound_lead_processing';\nconst message = body.originalMessage;\n\n// Initialize task execution context\nlet executionPlan = {\n  task: taskType,\n  steps: [],\n  tools: [],\n  knowledgeNeeded: []\n};\n\n// Define execution plans based on task type\nswitch(taskType) {\n  case 'inbound_lead_processing':\n    executionPlan.steps = [\n      'Review incoming lead information',\n      'Score lead based on ICP fit',\n      'Determine appropriate response path',\n      'Assign to sales rep or nurture sequence'\n    ];\n    executionPlan.tools = ['lead_scoring_tool', 'crm_integration', 'assignment_rules'];\n    executionPlan.knowledgeNeeded = ['icp_definition', 'lead_scoring_criteria', 'inbound_playbook'];\n    break;\n    \n  case 'demo_scheduling':\n    executionPlan.steps = [\n      'Qualify demo request',\n      'Check calendar availability',\n      'Send calendar invite',\n      'Prepare demo environment'\n    ];\n    executionPlan.tools = ['calendar_integration', 'demo_environment', 'email_automation'];\n    executionPlan.knowledgeNeeded = ['demo_qualification', 'demo_scripts', 'inbound_playbook'];\n    break;\n    \n  case 'lead_nurturing':\n    executionPlan.steps = [\n      'Analyze lead engagement history',\n      'Identify nurture track',\n      'Set up automated content delivery',\n      'Monitor engagement signals'\n    ];\n    executionPlan.tools = ['marketing_automation', 'content_library', 'engagement_tracking'];\n    executionPlan.knowledgeNeeded = ['nurture_sequences', 'content_mapping', 'engagement_triggers'];\n    break;\n    \n  case 'inbound_conversion':\n    executionPlan.steps = [\n      'Review conversion funnel',\n      'Identify drop-off points',\n      'Optimize response times',\n      'Implement follow-up strategies'\n    ];\n    executionPlan.tools = ['analytics_dashboard', 'conversion_tracking', 'automation_rules'];\n    executionPlan.knowledgeNeeded = ['conversion_best_practices', 'response_time_sla', 'inbound_playbook'];\n    break;\n    \n  default:\n    executionPlan.steps = ['Analyze request', 'Provide inbound guidance', 'Suggest optimization'];\n    executionPlan.tools = ['knowledge_base', 'crm_integration'];\n    executionPlan.knowledgeNeeded = ['inbound_playbook', 'sales_processes'];\n}\n\nreturn [{\n  json: {\n    ...body,\n    executionPlan: executionPlan,\n    agentContext: {\n      role: 'Inbound Sales Manager',\n      specialization: 'Lead conversion and nurturing',\n      currentTask: taskType\n    }\n  }\n}];"
+      },
+      "id": "plan_execution",
+      "name": "Plan Task Execution",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 400]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.executionPlan.task }}",
+                    "rightValue": "inbound_lead_processing",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "LeadProcessing"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.executionPlan.task }}",
+                    "rightValue": "demo_scheduling",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "DemoScheduling"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.executionPlan.task }}",
+                    "rightValue": "lead_nurturing",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "LeadNurturing"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.executionPlan.task }}",
+                    "rightValue": "inbound_conversion",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "ConversionOptimization"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "route_task",
+      "name": "Route by Task Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [650, 400]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "jsCode": "// Execute Inbound Lead Processing\nconst data = $input.all()[0].json;\nconst message = data.originalMessage;\n\n// Simulate lead scoring and processing\nconst leadAnalysis = {\n  lead_info: {\n    source: 'Website Contact Form',\n    company: 'TechStartup Inc',\n    size: '50-100 employees',\n    industry: 'SaaS',\n    contact: {\n      name: 'Sarah Johnson',\n      title: 'VP of Operations',\n      email: 'sarah@techstartup.com'\n    }\n  },\n  lead_score: {\n    total: 85,\n    breakdown: {\n      company_fit: 30,\n      engagement: 25,\n      budget_authority: 15,\n      timeline: 15\n    },\n    grade: 'A',\n    priority: 'High'\n  },\n  recommended_actions: [\n    'Assign to senior sales rep within 5 minutes',\n    'Send personalized welcome email',\n    'Schedule discovery call within 24 hours',\n    'Add to fast-track demo sequence'\n  ],\n  assignment: {\n    sales_rep: 'John Smith',\n    reason: 'Specializes in mid-market SaaS',\n    sla: '5 minute response time'\n  }\n};\n\nreturn [{\n  json: {\n    messageId: data.messageId,\n    response: `I've analyzed the inbound lead based on your request: \\\"${message}\\\"\\n\\nLead Analysis:\\n- Company: ${leadAnalysis.lead_info.company} (${leadAnalysis.lead_info.size})\\n- Lead Score: ${leadAnalysis.lead_score.total}/100 (Grade: ${leadAnalysis.lead_score.grade})\\n- Priority: ${leadAnalysis.lead_score.priority}\\n\\nRecommended Actions:\\n${leadAnalysis.recommended_actions.map((action, i) => `${i+1}. ${action}`).join('\\n')}\\n\\nAssignment:\\n- Sales Rep: ${leadAnalysis.assignment.sales_rep}\\n- Response SLA: ${leadAnalysis.assignment.sla}\\n\\nThis lead shows strong buying signals and fits our ICP perfectly. I've initiated the fast-track process for high-value opportunities.`,\n    executingAgent: 'inbound_sales_manager',\n    subAgent: 'lead_qualification_agent',\n    taskType: 'inbound_lead_processing',\n    leadAnalysis: leadAnalysis,\n    metrics: {\n      lead_score: leadAnalysis.lead_score.total,\n      response_time: '2 minutes',\n      assignment_confidence: 0.92\n    }\n  }\n}];"
+      },
+      "id": "process_lead",
+      "name": "Process Inbound Lead",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 200]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "jsCode": "// Execute Demo Scheduling Task\nconst data = $input.all()[0].json;\nconst message = data.originalMessage;\n\n// Simulate demo scheduling process\nconst demoScheduling = {\n  request_details: {\n    company: 'Enterprise Corp',\n    contact: 'Michael Chen, CTO',\n    team_size: '5-7 stakeholders',\n    use_case: 'Sales automation and pipeline management',\n    current_tools: 'Spreadsheets and basic CRM'\n  },\n  qualification: {\n    qualified: true,\n    score: 88,\n    demo_type: 'Executive Demo',\n    duration: '45 minutes',\n    focus_areas: [\n      'ROI calculator',\n      'Integration capabilities',\n      'Security and compliance',\n      'Implementation timeline'\n    ]\n  },\n  scheduling: {\n    available_slots: [\n      { date: '2024-11-28', time: '10:00 AM EST', rep: 'Sarah Williams' },\n      { date: '2024-11-28', time: '2:00 PM EST', rep: 'Sarah Williams' },\n      { date: '2024-11-29', time: '11:00 AM EST', rep: 'Mike Johnson' }\n    ],\n    recommended_slot: 0,\n    prep_materials: [\n      'Executive overview deck',\n      'ROI case studies',\n      'Integration documentation',\n      'Security whitepaper'\n    ]\n  },\n  follow_up: {\n    pre_demo: 'Send agenda and attendee confirmation',\n    post_demo: 'Send recording and proposal within 24 hours'\n  }\n};\n\nreturn [{\n  json: {\n    messageId: data.messageId,\n    response: `I've processed the demo request: \\\"${message}\\\"\\n\\nDemo Request Analysis:\\n- Company: ${demoScheduling.request_details.company}\\n- Contact: ${demoScheduling.request_details.contact}\\n- Qualification Score: ${demoScheduling.qualification.score}/100\\n- Demo Type: ${demoScheduling.qualification.demo_type}\\n\\nFocus Areas for Demo:\\n${demoScheduling.qualification.focus_areas.map(area => `• ${area}`).join('\\n')}\\n\\nAvailable Time Slots:\\n${demoScheduling.scheduling.available_slots.map((slot, i) => `${i+1}. ${slot.date} at ${slot.time} with ${slot.rep}`).join('\\n')}\\n\\nPrep Materials:\\n${demoScheduling.scheduling.prep_materials.map(material => `• ${material}`).join('\\n')}\\n\\nI recommend the first slot and have prepared all materials for an executive-level demonstration focusing on ROI and integration capabilities.`,\n    executingAgent: 'inbound_sales_manager',\n    subAgent: 'demo_scheduler_agent',\n    taskType: 'demo_scheduling',\n    demoDetails: demoScheduling,\n    metrics: {\n      qualification_score: demoScheduling.qualification.score,\n      slots_available: demoScheduling.scheduling.available_slots.length,\n      prep_time: '30 minutes'\n    }\n  }\n}];"
+      },
+      "id": "schedule_demo",
+      "name": "Schedule Demo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "jsCode": "// Execute Lead Nurturing Task\nconst data = $input.all()[0].json;\nconst message = data.originalMessage;\n\n// Simulate lead nurturing strategy\nconst nurtureStrategy = {\n  lead_segment: {\n    category: 'Warm Lead - Not Ready to Buy',\n    engagement_score: 65,\n    last_interaction: '5 days ago',\n    content_consumed: [\n      'Pricing page (3x)',\n      'Case studies (2x)',\n      'Blog: \\\"5 Signs You Need a CRM\\\"',\n      'ROI Calculator'\n    ]\n  },\n  nurture_track: {\n    name: 'Education & Trust Building',\n    duration: '30 days',\n    touchpoints: 8,\n    channels: ['Email', 'LinkedIn', 'Retargeting Ads']\n  },\n  content_sequence: [\n    { day: 0, type: 'Email', content: 'Welcome: Your CRM Evaluation Checklist' },\n    { day: 3, type: 'Email', content: 'Case Study: How TechCorp Increased Sales 40%' },\n    { day: 7, type: 'LinkedIn', content: 'Connect with industry insights' },\n    { day: 10, type: 'Email', content: 'Webinar Invite: CRM Best Practices' },\n    { day: 14, type: 'Email', content: 'Comparison Guide: Us vs Competitors' },\n    { day: 21, type: 'Email', content: 'Exclusive: 30-day free trial offer' },\n    { day: 28, type: 'Email', content: 'Personal invite: 1-on-1 consultation' },\n    { day: 30, type: 'Phone', content: 'Check-in call from sales rep' }\n  ],\n  triggers: {\n    high_engagement: 'Move to active sales sequence',\n    demo_request: 'Immediate rep assignment',\n    competitor_research: 'Send comparison content',\n    pricing_revisit: 'Offer consultation call'\n  },\n  success_metrics: {\n    expected_conversion_rate: '18%',\n    average_time_to_convert: '21 days',\n    engagement_threshold: '75%'\n  }\n};\n\nreturn [{\n  json: {\n    messageId: data.messageId,\n    response: `I've created a nurturing strategy based on your request: \\\"${message}\\\"\\n\\nLead Segment Analysis:\\n- Category: ${nurtureStrategy.lead_segment.category}\\n- Engagement Score: ${nurtureStrategy.lead_segment.engagement_score}/100\\n- Recent Activity: Viewed ${nurtureStrategy.lead_segment.content_consumed.length} content pieces\\n\\nNurture Track: ${nurtureStrategy.nurture_track.name}\\n- Duration: ${nurtureStrategy.nurture_track.duration}\\n- Touchpoints: ${nurtureStrategy.nurture_track.touchpoints} across ${nurtureStrategy.nurture_track.channels.join(', ')}\\n\\nContent Sequence (First 5):\\n${nurtureStrategy.content_sequence.slice(0, 5).map(item => `Day ${item.day} - ${item.type}: ${item.content}`).join('\\n')}\\n\\nEngagement Triggers Set:\\n${Object.entries(nurtureStrategy.triggers).map(([trigger, action]) => `• ${trigger}: ${action}`).join('\\n')}\\n\\nExpected Results:\\n- Conversion Rate: ${nurtureStrategy.success_metrics.expected_conversion_rate}\\n- Time to Convert: ${nurtureStrategy.success_metrics.average_time_to_convert}\\n\\nThe nurture sequence is now active and will adapt based on engagement signals.`,\n    executingAgent: 'inbound_sales_manager',\n    subAgent: 'lead_nurture_agent',\n    taskType: 'lead_nurturing',\n    nurtureStrategy: nurtureStrategy,\n    metrics: {\n      touchpoints_planned: nurtureStrategy.content_sequence.length,\n      engagement_score: nurtureStrategy.lead_segment.engagement_score,\n      expected_conversion: nurtureStrategy.success_metrics.expected_conversion_rate\n    }\n  }\n}];"
+      },
+      "id": "nurture_lead",
+      "name": "Create Nurture Strategy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 400]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "jsCode": "// Execute Inbound Conversion Optimization\nconst data = $input.all()[0].json;\nconst message = data.originalMessage;\n\n// Analyze conversion funnel and optimization opportunities\nconst conversionAnalysis = {\n  funnel_metrics: {\n    stages: [\n      { stage: 'Website Visit', count: 1000, rate: '100%' },\n      { stage: 'Content Download', count: 350, rate: '35%' },\n      { stage: 'Demo Request', count: 120, rate: '12%' },\n      { stage: 'Sales Qualified', count: 85, rate: '8.5%' },\n      { stage: 'Opportunity', count: 45, rate: '4.5%' },\n      { stage: 'Closed Won', count: 12, rate: '1.2%' }\n    ],\n    bottlenecks: [\n      { stage: 'Content to Demo', drop_rate: '66%', impact: 'High' },\n      { stage: 'Demo to SQL', drop_rate: '29%', impact: 'Medium' }\n    ]\n  },\n  response_time_analysis: {\n    current_avg: '2.5 hours',\n    benchmark: '5 minutes',\n    impact: '78% lower conversion when response > 1 hour',\n    recommendation: 'Implement instant chat qualification'\n  },\n  optimization_recommendations: [\n    {\n      priority: 'High',\n      action: 'Add live chat with instant routing',\n      expected_impact: '+35% demo requests',\n      effort: 'Medium'\n    },\n    {\n      priority: 'High',\n      action: 'Implement progressive profiling',\n      expected_impact: '+20% form completions',\n      effort: 'Low'\n    },\n    {\n      priority: 'Medium',\n      action: 'Create industry-specific landing pages',\n      expected_impact: '+15% conversion rate',\n      effort: 'Medium'\n    },\n    {\n      priority: 'Medium',\n      action: 'Add social proof to demo booking',\n      expected_impact: '+25% demo show rate',\n      effort: 'Low'\n    }\n  ],\n  a_b_tests: [\n    {\n      test: 'CTA Button Color',\n      status: 'Running',\n      results: 'Green +12% vs Blue baseline'\n    },\n    {\n      test: 'Form Fields Reduction',\n      status: 'Completed',\n      results: '3 fields +45% completion vs 7 fields'\n    }\n  ]\n};\n\nreturn [{\n  json: {\n    messageId: data.messageId,\n    response: `I've analyzed the inbound conversion funnel based on your request: \\\"${message}\\\"\\n\\nFunnel Performance:\\n${conversionAnalysis.funnel_metrics.stages.slice(0, 4).map(s => `• ${s.stage}: ${s.count} (${s.rate})`).join('\\n')}\\n\\nKey Bottlenecks Identified:\\n${conversionAnalysis.funnel_metrics.bottlenecks.map(b => `• ${b.stage}: ${b.drop_rate} drop (${b.impact} impact)`).join('\\n')}\\n\\nResponse Time Issue:\\n- Current: ${conversionAnalysis.response_time_analysis.current_avg}\\n- Benchmark: ${conversionAnalysis.response_time_analysis.benchmark}\\n- Impact: ${conversionAnalysis.response_time_analysis.impact}\\n\\nTop Optimization Recommendations:\\n${conversionAnalysis.optimization_recommendations.slice(0, 3).map((r, i) => `${i+1}. ${r.action}\\n   Expected: ${r.expected_impact} | Effort: ${r.effort}`).join('\\n')}\\n\\nA/B Test Results:\\n${conversionAnalysis.a_b_tests.map(t => `• ${t.test}: ${t.results}`).join('\\n')}\\n\\nImplementing these optimizations could increase overall conversion rate by 40-60%.`,\n    executingAgent: 'inbound_sales_manager',\n    subAgent: 'conversion_optimization_agent',\n    taskType: 'inbound_conversion',\n    conversionAnalysis: conversionAnalysis,\n    metrics: {\n      current_conversion_rate: '1.2%',\n      optimization_potential: '40-60%',\n      recommendations_count: conversionAnalysis.optimization_recommendations.length\n    }\n  }\n}];"
+      },
+      "id": "optimize_conversion",
+      "name": "Optimize Conversion",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 500]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "jsCode": "// General Inbound Sales Guidance\nconst data = $input.all()[0].json;\nconst message = data.originalMessage;\n\n// Access inbound sales playbook knowledge\nconst inboundGuidance = {\n  best_practices: [\n    'Respond within 5 minutes for 100x better results',\n    'Personalize based on their content consumption',\n    'Focus on their business challenges, not features',\n    'Use social proof from similar companies',\n    'Create urgency without being pushy'\n  ],\n  inbound_methodology: {\n    framework: 'BANT++',\n    components: [\n      'Budget: Understand financial capacity',\n      'Authority: Map decision makers',\n      'Need: Identify specific pain points',\n      'Timeline: Uncover urgency triggers',\n      'Challenges: Current obstacles',\n      'Consequences: Cost of inaction'\n    ]\n  },\n  lead_response_sla: {\n    'Hot Lead (Score 80+)': '5 minutes',\n    'Warm Lead (Score 60-79)': '30 minutes',\n    'Cool Lead (Score 40-59)': '2 hours',\n    'Cold Lead (Score <40)': '24 hours'\n  },\n  tools_and_resources: [\n    'Lead scoring calculator',\n    'Demo script library',\n    'Objection handling guide',\n    'ROI calculator templates',\n    'Competitive battle cards'\n  ]\n};\n\nreturn [{\n  json: {\n    messageId: data.messageId,\n    response: `As your Inbound Sales Manager, I'm here to help with: \\\"${message}\\\"\\n\\nInbound Sales Best Practices:\\n${inboundGuidance.best_practices.map(practice => `• ${practice}`).join('\\n')}\\n\\nOur Inbound Methodology (${inboundGuidance.inbound_methodology.framework}):\\n${inboundGuidance.inbound_methodology.components.map(comp => `• ${comp}`).join('\\n')}\\n\\nResponse Time SLAs:\\n${Object.entries(inboundGuidance.lead_response_sla).map(([lead, sla]) => `• ${lead}: ${sla}`).join('\\n')}\\n\\nAvailable Resources:\\n${inboundGuidance.tools_and_resources.map(tool => `• ${tool}`).join('\\n')}\\n\\nI can help you with:\\n- Processing and scoring inbound leads\\n- Scheduling and preparing demos\\n- Creating nurture sequences\\n- Optimizing conversion rates\\n- Training on inbound best practices\\n\\nWhat specific aspect of inbound sales would you like to focus on?`,\n    executingAgent: 'inbound_sales_manager',\n    taskType: 'general_guidance',\n    guidance: inboundGuidance\n  }\n}];"
+      },
+      "id": "general_guidance",
+      "name": "General Inbound Guidance",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 600]
+    },
+    {
+      "parameters": {
+        "values": {
+          "values": [
+            {
+              "name": "originalData",
+              "value": "={{ $json }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "merge_context",
+      "name": "Merge Context",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [1050, 400]
+    }
+  ],
+  "connections": {
+    "Inbound Manager Webhook": {
+      "main": [
+        [
+          {
+            "node": "Plan Task Execution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan Task Execution": {
+      "main": [
+        [
+          {
+            "node": "Route by Task Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Task Type": {
+      "main": [
+        [
+          {
+            "node": "Process Inbound Lead",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Schedule Demo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Nurture Strategy",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Optimize Conversion",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "General Inbound Guidance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Inbound Lead": {
+      "main": [
+        [
+          {
+            "node": "Merge Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Demo": {
+      "main": [
+        [
+          {
+            "node": "Merge Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Nurture Strategy": {
+      "main": [
+        [
+          {
+            "node": "Merge Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Optimize Conversion": {
+      "main": [
+        [
+          {
+            "node": "Merge Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "General Inbound Guidance": {
+      "main": [
+        [
+          {
+            "node": "Merge Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "instanceId": "inbound-sales-manager-agent"
+  }
+}

@@ -1005,10 +1005,216 @@ class MCPGmailSearchTool(MCPSuperAssistantTool):
 class MCPWebSearchTool(MCPSuperAssistantTool):
     name: str = "MCP Web Search Tool"
     description: str = "Performs web searches for lead research and company information"
-    
+
     def _run(self, query: str, site: str = "", num_results: int = 10) -> str:
         parameters = {"query": query, "site": site, "num_results": str(num_results)}
         return super()._run("web.search", parameters)
+
+
+# ============================================================
+# n8n MCP Integration Tools
+# ============================================================
+
+class N8NMCPTool(BaseTool):
+    """
+    Base tool for interacting with n8n workflows via MCP protocol.
+    Connects to n8n's Instance-level MCP server (JSON-RPC over HTTP).
+
+    n8n MCP Server URL format: https://your-instance.app.n8n.cloud/mcp-server/http
+    Authentication: Bearer token (N8N_MCP_TOKEN from n8n Instance-level MCP settings)
+    """
+    name: str = "n8n MCP Base Tool"
+    description: str = "Base class for n8n MCP integration tools"
+    n8n_mcp_url: str = os.getenv("N8N_MCP_SERVER_URI", "https://localhost/mcp-server/http")
+    n8n_mcp_token: str = os.getenv("N8N_MCP_TOKEN", "")
+    n8n_host: str = os.getenv("N8N_HOST", "https://localhost")
+
+    def _run(self, method: str, params: Dict[str, Any]) -> str:
+        """Execute an n8n operation via MCP protocol (JSON-RPC over HTTP)"""
+        request_id = str(uuid.uuid4())
+
+        # n8n MCP uses JSON-RPC 2.0 format
+        json_rpc_payload = {
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "method": method,
+            "params": params
+        }
+
+        headers = {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json, text/event-stream'  # n8n MCP requires SSE support
+        }
+
+        # Add Bearer token authentication
+        if self.n8n_mcp_token:
+            headers['Authorization'] = f'Bearer {self.n8n_mcp_token}'
+
+        logger.info(f"Calling n8n MCP: {method}")
+        try:
+            response = requests.post(
+                self.n8n_mcp_url,
+                json=json_rpc_payload,
+                headers=headers,
+                timeout=60
+            )
+            response.raise_for_status()
+
+            # n8n MCP returns SSE format: "event: message\ndata: {...}"
+            response_text = response.text
+            result_data = None
+
+            # Parse SSE format
+            for line in response_text.split('\n'):
+                if line.startswith('data: '):
+                    try:
+                        result_data = json.loads(line[6:])  # Skip "data: " prefix
+                        break
+                    except json.JSONDecodeError:
+                        continue
+
+            if result_data is None:
+                # Try parsing as regular JSON
+                try:
+                    result_data = response.json()
+                except json.JSONDecodeError:
+                    return f"Could not parse n8n MCP response: {response_text[:200]}"
+
+            logger.info(f"n8n MCP Response: {json.dumps(result_data)[:200]}...")
+
+            if "error" in result_data:
+                return f"n8n MCP Error: {result_data['error']}"
+
+            return json.dumps(result_data.get("result", result_data))
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error calling n8n MCP: {e}")
+            return f"Error calling n8n MCP: {e}"
+
+    def list_tools(self) -> str:
+        """List available tools/workflows from n8n MCP server"""
+        return self._run("tools/list", {})
+
+    def call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> str:
+        """Call a specific tool exposed by n8n MCP"""
+        return self._run("tools/call", {
+            "name": tool_name,
+            "arguments": arguments
+        })
+
+
+class N8NTriggerWorkflowTool(N8NMCPTool):
+    """Tool for executing n8n workflows via MCP"""
+    name: str = "n8n Execute Workflow Tool"
+    description: str = (
+        "Executes an n8n workflow by ID. First use search_workflows to find "
+        "workflows, then get_workflow_details for input schema."
+    )
+
+    def _run(self, workflow_id: str, input_data: Optional[Dict[str, Any]] = None) -> str:
+        """Execute an n8n workflow via MCP"""
+        return self.call_tool("execute_workflow", {
+            "workflowId": workflow_id,
+            "inputData": input_data or {}
+        })
+
+
+class N8NListWorkflowsTool(N8NMCPTool):
+    """Tool for searching n8n workflows via MCP"""
+    name: str = "n8n Search Workflows Tool"
+    description: str = (
+        "Searches for n8n workflows. Use query parameter to filter by name/description."
+    )
+
+    def _run(self, query: str = "", limit: int = 50) -> str:
+        """Search n8n workflows via MCP"""
+        return self.call_tool("search_workflows", {
+            "query": query,
+            "limit": limit
+        })
+
+
+class N8NGetWorkflowDetailsTool(N8NMCPTool):
+    """Tool for getting detailed information about an n8n workflow"""
+    name: str = "n8n Get Workflow Details Tool"
+    description: str = (
+        "Gets detailed information about a workflow including trigger details "
+        "and input schema. Use this before executing a workflow."
+    )
+
+    def _run(self, workflow_id: str) -> str:
+        """Get workflow details via MCP"""
+        return self.call_tool("get_workflow_details", {
+            "workflowId": workflow_id
+        })
+
+
+class N8NSalesAutomationTool(N8NMCPTool):
+    """
+    Tool for triggering sales-specific n8n workflows via MCP.
+    Discovers and calls sales workflows exposed by n8n MCP server.
+    """
+    name: str = "n8n Sales Automation Tool"
+    description: str = (
+        "Triggers sales automation workflows in n8n via MCP. "
+        "First use list_tools() to discover available sales workflows, "
+        "then call them with appropriate data."
+    )
+
+    def _run(self, workflow_name: str, lead_data: Dict[str, Any]) -> str:
+        """Trigger a sales workflow via n8n MCP"""
+        # Call the workflow tool directly via MCP
+        return self.call_tool(workflow_name, {
+            "action": "sales",
+            "data": lead_data
+        })
+
+    def discover_sales_workflows(self) -> str:
+        """Discover available sales workflows from n8n MCP"""
+        tools_response = self.list_tools()
+        # Filter for sales-related tools if possible
+        return tools_response
+
+
+class N8NMarketingAutomationTool(N8NMCPTool):
+    """
+    Tool for triggering marketing-specific n8n workflows via MCP.
+    Discovers and calls marketing workflows exposed by n8n MCP server.
+    """
+    name: str = "n8n Marketing Automation Tool"
+    description: str = (
+        "Triggers marketing automation workflows in n8n via MCP. "
+        "First use list_tools() to discover available marketing workflows, "
+        "then call them with appropriate data."
+    )
+
+    def _run(self, workflow_name: str, campaign_data: Dict[str, Any]) -> str:
+        """Trigger a marketing workflow via n8n MCP"""
+        return self.call_tool(workflow_name, {
+            "action": "marketing",
+            "data": campaign_data
+        })
+
+    def discover_marketing_workflows(self) -> str:
+        """Discover available marketing workflows from n8n MCP"""
+        tools_response = self.list_tools()
+        return tools_response
+
+
+class N8NExecuteWorkflowTool(N8NMCPTool):
+    """
+    Tool for executing any n8n workflow exposed via MCP.
+    Use list_tools() first to discover available workflows.
+    """
+    name: str = "n8n Execute Workflow Tool"
+    description: str = (
+        "Executes any n8n workflow exposed via MCP. "
+        "Use list_tools() to discover available workflows first."
+    )
+
+    def _run(self, workflow_name: str, input_data: Dict[str, Any]) -> str:
+        """Execute a workflow via n8n MCP"""
+        return self.call_tool(workflow_name, input_data)
+
 
 # Check if we're in mock mode
 USE_MOCK_KB = os.environ.get('USE_MOCK_KB', 'false').lower() == 'true'
@@ -1167,8 +1373,29 @@ def get_tool_by_name(tool_name: str) -> Optional[Any]:
                 "Mock Security Knowledge Base Tool",
                 "Mock security knowledge base queries for testing"
             ),
+            # n8n Integration Tools
+            "n8n_trigger_workflow_tool": create_mock_tool(
+                "Mock n8n Trigger Workflow Tool",
+                "Mock n8n workflow triggering for testing"
+            ),
+            "n8n_list_workflows_tool": create_mock_tool(
+                "Mock n8n List Workflows Tool",
+                "Mock n8n workflow listing for testing"
+            ),
+            "n8n_sales_automation_tool": create_mock_tool(
+                "Mock n8n Sales Automation Tool",
+                "Mock sales automation via n8n for testing"
+            ),
+            "n8n_marketing_automation_tool": create_mock_tool(
+                "Mock n8n Marketing Automation Tool",
+                "Mock marketing automation via n8n for testing"
+            ),
+            "n8n_execute_workflow_tool": create_mock_tool(
+                "Mock n8n Execute Workflow Tool",
+                "Mock synchronous n8n workflow execution for testing"
+            ),
         }
-        
+
         return mock_tools.get(tool_name)
     
     # Try to use the real tools first
@@ -1278,8 +1505,16 @@ def get_tool_by_name(tool_name: str) -> Optional[Any]:
             "customer_kb_tool": CustomerKBTool(),
             "sales_kb_tool": SalesKBTool(),
             "security_kb_tool": SecurityKBTool(),
+
+            # n8n Integration Tools (connects to n8n Instance-level MCP)
+            "n8n_trigger_workflow_tool": N8NTriggerWorkflowTool(),
+            "n8n_list_workflows_tool": N8NListWorkflowsTool(),
+            "n8n_get_workflow_details_tool": N8NGetWorkflowDetailsTool(),
+            "n8n_sales_automation_tool": N8NSalesAutomationTool(),
+            "n8n_marketing_automation_tool": N8NMarketingAutomationTool(),
+            "n8n_execute_workflow_tool": N8NExecuteWorkflowTool(),
         }
-        
+
         tools_map.update(new_mcp_tools)
         
         tool = tools_map.get(tool_name)

@@ -1,20 +1,46 @@
-# Core frameworks
-crewai==0.120.1
-langchain==0.1.9
-pydantic==2.8.2
+# JeweledTech Agentic Framework - Core Dependencies
+# Updated: 2025-12-30
+
+# Core AI frameworks
+crewai>=0.120.1
+langchain>=0.3.20
+langchain-community>=0.3.20
+langchain-core>=0.3.35
+pydantic>=2.10.0
 
 # API framework
 fastapi>=0.115.9
-uvicorn==0.24.0
+uvicorn>=0.34.0
+starlette>=0.45.0
 
-# LLM support
-langchain-community==0.0.25
+# LLM providers
+openai>=1.75.0
+litellm>=1.68.0
+
+# HTTP & Networking
+requests>=2.32.3
+httpx>=0.28.1
+aiohttp>=3.11.0
 
 # Utilities
-python-dotenv==1.0.0
-requests==2.31.0
+python-dotenv>=1.0.1
+tenacity>=9.0.0
+pyyaml>=6.0.2
+orjson>=3.10.0
 
-# Optional: For advanced features
-# chromadb==0.4.22  # For vector storage
-# beautifulsoup4==4.12.3  # For web scraping
-# pypdf==4.0.1  # For PDF processing
+# Vector Database (optional - uncomment if needed)
+# chromadb>=0.6.0
+
+# Web scraping (optional)
+# beautifulsoup4>=4.12.3
+
+# PDF processing (optional)
+# pypdf>=5.0.0
+# pdfplumber>=0.11.0
+
+# Local LLM support (optional - requires C++ compiler)
+# llama-cpp-python>=0.3.0
+
+# Development
+pytest>=8.3.0
+pytest-asyncio>=0.24.0

@@ -1,0 +1,263 @@
+{
+  "name": "AI Factory - Assessment Processing with MCP Enhancement",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "assessment-submit",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook_trigger",
+      "name": "Webhook - Assessment Submission",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assessment_data",
+              "name": "assessment_data",
+              "value": "={{ $json }}",
+              "type": "object"
+            },
+            {
+              "id": "timestamp",
+              "name": "timestamp",
+              "value": "={{ new Date().toISOString() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "prepare_assessment",
+      "name": "Prepare Assessment Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://ai-factory-n8n-mcp:3001/mcp",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"get_node_for_task\",\n  \"params\": {\n    \"task\": \"process_{{ $json.assessment_data.departments_of_interest[0] }}_assessment\"\n  },\n  \"id\": 1\n}",
+        "options": {}
+      },
+      "id": "get_department_workflow",
+      "name": "Get Department Workflow Config",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [650, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "mcp_auth",
+          "name": "MCP Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Store Assessment in Supabase\n\nThis node would store the assessment data in Supabase.\nThe actual implementation depends on your Supabase schema.",
+        "height": 150,
+        "color": 5
+      },
+      "id": "store_supabase",
+      "name": "Store in Supabase",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [850, 150]
+    },
+    {
+      "parameters": {
+        "url": "https://api.jeweledtech.com/workflow/trigger",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"use_case\": \"assessment_analysis\",\n  \"department\": \"{{ $json.assessment_data.departments_of_interest[0] || 'sales' }}\",\n  \"workflow_type\": \"assessment_analysis\",\n  \"mcp_enhanced\": true,\n  \"suggested_nodes\": {{ JSON.stringify($node[\"Get Department Workflow Config\"].json.result) }},\n  \"data\": {\n    \"assessment_id\": \"{{ $json.assessment_data.assessment_id }}\",\n    \"company_name\": \"{{ $json.assessment_data.company_name }}\",\n    \"vertical\": \"{{ $json.assessment_data.vertical }}\",\n    \"departments_of_interest\": {{ JSON.stringify($json.assessment_data.departments_of_interest) }},\n    \"strategic_priorities\": \"{{ $json.assessment_data.strategic_priorities }}\",\n    \"operational_bottlenecks\": \"{{ $json.assessment_data.operational_bottlenecks }}\"\n  }\n}",
+        "options": {}
+      },
+      "id": "trigger_crewai",
+      "name": "Trigger CrewAI Analysis",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://ai-factory-n8n-mcp:3001/mcp",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"n8n_create_workflow\",\n  \"params\": {\n    \"name\": \"Assessment_{{ $json.assessment_data.company_name }}_{{ $json.assessment_data.departments_of_interest[0] }}_{{ Date.now() }}\",\n    \"nodes\": [\n      {\n        \"id\": \"webhook_1\",\n        \"name\": \"Webhook Trigger\",\n        \"type\": \"n8n-nodes-base.webhook\",\n        \"typeVersion\": 2,\n        \"position\": [250, 300],\n        \"parameters\": {\n          \"path\": \"assessment-{{ $json.assessment_data.assessment_id }}\",\n          \"responseMode\": \"lastNode\"\n        }\n      },\n      {\n        \"id\": \"process_1\",\n        \"name\": \"Process Assessment\",\n        \"type\": \"n8n-nodes-base.function\",\n        \"typeVersion\": 1,\n        \"position\": [450, 300],\n        \"parameters\": {\n          \"functionCode\": \"// Auto-generated workflow for {{ $json.assessment_data.company_name }}\\n// Department: {{ $json.assessment_data.departments_of_interest[0] }}\\n\\nconst assessment = $input.item.json;\\n\\n// Process based on MCP suggestions\\nconst result = {\\n  company: assessment.company_name,\\n  department: assessment.departments_of_interest[0],\\n  analysis: 'Automated analysis workflow created',\\n  timestamp: new Date().toISOString()\\n};\\n\\nreturn [result];\"\n        }\n      }\n    ],\n    \"connections\": {\n      \"webhook_1\": {\n        \"main\": [\n          [\n            {\n              \"node\": \"process_1\",\n              \"type\": \"main\",\n              \"index\": 0\n            }\n          ]\n        ]\n      }\n    },\n    \"settings\": {\n      \"executionOrder\": \"v1\"\n    }\n  },\n  \"id\": 2\n}",
+        "options": {}
+      },
+      "id": "create_custom_workflow",
+      "name": "Create Custom Assessment Workflow",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1050, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "mcp_auth",
+          "name": "MCP Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "success",
+              "name": "success",
+              "value": "=true",
+              "type": "boolean"
+            },
+            {
+              "id": "message",
+              "name": "message",
+              "value": "Assessment received and processing initiated",
+              "type": "string"
+            },
+            {
+              "id": "assessment_id",
+              "name": "assessment_id",
+              "value": "={{ $node[\"Prepare Assessment Data\"].json.assessment_data.assessment_id }}",
+              "type": "string"
+            },
+            {
+              "id": "workflow_id",
+              "name": "workflow_id",
+              "value": "={{ $node[\"Trigger CrewAI Analysis\"].json.workflow_id }}",
+              "type": "string"
+            },
+            {
+              "id": "custom_workflow_id",
+              "name": "custom_workflow_id",
+              "value": "={{ $node[\"Create Custom Assessment Workflow\"].json.result?.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "prepare_response",
+      "name": "Prepare Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "respond_webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1450, 300]
+    }
+  ],
+  "connections": {
+    "Webhook - Assessment Submission": {
+      "main": [
+        [
+          {
+            "node": "Prepare Assessment Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Assessment Data": {
+      "main": [
+        [
+          {
+            "node": "Get Department Workflow Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Department Workflow Config": {
+      "main": [
+        [
+          {
+            "node": "Trigger CrewAI Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger CrewAI Analysis": {
+      "main": [
+        [
+          {
+            "node": "Create Custom Assessment Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Custom Assessment Workflow": {
+      "main": [
+        [
+          {
+            "node": "Prepare Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": ["ai-factory", "mcp-enhanced", "assessment"],
+  "pinData": {},
+  "staticData": null
+}

@@ -1,0 +1,274 @@
+{
+  "name": "AI Factory - MCP Integration Example",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "mcp-demo",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook_trigger",
+      "name": "Webhook - MCP Demo",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "task_description",
+              "value": "={{ $json.task_description || 'Send an email notification when a new customer signs up' }}",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "workflow_type",
+              "value": "={{ $json.workflow_type || 'customer_notification' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "prepare_data",
+      "name": "Prepare MCP Request",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://ai-factory-n8n-mcp:3001/mcp",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"get_node_for_task\",\n  \"params\": {\n    \"task\": \"{{ $json.task_description }}\"\n  },\n  \"id\": 1\n}",
+        "options": {}
+      },
+      "id": "call_mcp_task",
+      "name": "Get Node Configuration",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [650, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "mcp_auth",
+          "name": "MCP Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "http://ai-factory-n8n-mcp:3001/mcp",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"validate_workflow\",\n  \"params\": {\n    \"workflow\": {\n      \"name\": \"{{ $json.workflow_type }}_workflow\",\n      \"nodes\": [\n        {\n          \"id\": \"trigger\",\n          \"name\": \"Trigger\",\n          \"type\": \"n8n-nodes-base.webhook\",\n          \"typeVersion\": 2,\n          \"position\": [250, 300],\n          \"parameters\": {\n            \"path\": \"{{ $json.workflow_type }}\",\n            \"responseMode\": \"lastNode\"\n          }\n        },\n        {{ $node[\"Get Node Configuration\"].json.result.suggestedNodes }}\n      ],\n      \"connections\": {\n        \"trigger\": {\n          \"main\": [\n            [\n              {\n                \"node\": \"process\",\n                \"type\": \"main\",\n                \"index\": 0\n              }\n            ]\n          ]\n        }\n      }\n    }\n  },\n  \"id\": 2\n}",
+        "options": {}
+      },
+      "id": "validate_workflow",
+      "name": "Validate Workflow",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [850, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "mcp_auth",
+          "name": "MCP Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "1",
+              "leftValue": "={{ $json.result.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check_validation",
+      "name": "Check Validation",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://ai-factory-n8n-mcp:3001/mcp",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"n8n_create_workflow\",\n  \"params\": {{ $node[\"Validate Workflow\"].json.params.workflow }},\n  \"id\": 3\n}",
+        "options": {}
+      },
+      "id": "create_workflow",
+      "name": "Create Workflow in n8n",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1250, 250],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "mcp_auth",
+          "name": "MCP Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "respond_success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1450, 250]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"success\": false,\n  \"error\": \"Workflow validation failed\",\n  \"details\": {{ JSON.stringify($json.result.errors) }}\n}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "respond_error",
+      "name": "Respond Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1250, 350]
+    }
+  ],
+  "connections": {
+    "Webhook - MCP Demo": {
+      "main": [
+        [
+          {
+            "node": "Prepare MCP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare MCP Request": {
+      "main": [
+        [
+          {
+            "node": "Get Node Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Node Configuration": {
+      "main": [
+        [
+          {
+            "node": "Validate Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Workflow": {
+      "main": [
+        [
+          {
+            "node": "Check Validation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Validation": {
+      "main": [
+        [
+          {
+            "node": "Create Workflow in n8n",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Workflow in n8n": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [],
+  "pinData": {},
+  "staticData": null
+}

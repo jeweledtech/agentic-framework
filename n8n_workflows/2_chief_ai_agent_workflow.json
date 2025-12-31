@@ -1,0 +1,258 @@
+{
+  "name": "Chief AI Agent - Central Orchestrator",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "chief-ai-agent",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "id": "webhook_chief",
+      "name": "Chief AI Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "webhookId": "chief-ai-agent"
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "jsCode": "// Chief AI Agent - Message Analysis and Department Routing\nconst message = $input.all()[0].json.body.message;\nconst messageId = $input.all()[0].json.body.id;\nconst channel = $input.all()[0].json.body.channel;\nconst priority = $input.all()[0].json.body.priority;\n\n// Initialize analysis result\nlet department = null;\nlet useCase = null;\nlet confidence = 0;\nlet keywords = [];\n\n// Convert message to lowercase for analysis\nconst messageLower = message.toLowerCase();\n\n// Department routing logic with keyword analysis\n// Sales Department\nif (messageLower.match(/\\b(sales|lead|pipeline|crm|prospect|deal|quota|revenue|close|opportunity|outbound|inbound)\\b/)) {\n  department = 'sales';\n  keywords.push(...messageLower.match(/\\b(sales|lead|pipeline|crm|prospect|deal|quota|revenue|close|opportunity|outbound|inbound)\\b/g));\n  \n  // Determine specific use case\n  if (messageLower.includes('outbound') || messageLower.includes('cold') || messageLower.includes('prospecting')) {\n    useCase = 'outbound_campaign';\n  } else if (messageLower.includes('lead') || messageLower.includes('pipeline')) {\n    useCase = 'lead_generation';\n  } else if (messageLower.includes('forecast') || messageLower.includes('quota')) {\n    useCase = 'revenue_forecast';\n  } else {\n    useCase = 'general_sales';\n  }\n  confidence = 0.9;\n}\n// Marketing Department\nelse if (messageLower.match(/\\b(marketing|content|social|brand|campaign|seo|blog|video|creative)\\b/) && \n         !messageLower.match(/\\b(sales campaign|outbound campaign)\\b/)) {\n  department = 'marketing';\n  keywords.push(...messageLower.match(/\\b(marketing|content|social|brand|campaign|seo|blog|video|creative)\\b/g));\n  \n  if (messageLower.includes('content') || messageLower.includes('calendar')) {\n    useCase = 'content_calendar';\n  } else if (messageLower.includes('social')) {\n    useCase = 'social_media';\n  } else if (messageLower.includes('brand')) {\n    useCase = 'brand_management';\n  } else {\n    useCase = 'general_marketing';\n  }\n  confidence = 0.85;\n}\n// Engineering/Product Department\nelse if (messageLower.match(/\\b(engineering|development|technical|product|roadmap|feature|bug|code|api|backend|frontend)\\b/)) {\n  department = 'product';\n  keywords.push(...messageLower.match(/\\b(engineering|development|technical|product|roadmap|feature|bug|code|api|backend|frontend)\\b/g));\n  \n  if (messageLower.includes('roadmap')) {\n    useCase = 'technical_roadmap';\n  } else if (messageLower.includes('bug') || messageLower.includes('issue')) {\n    useCase = 'bug_tracking';\n  } else if (messageLower.includes('feature')) {\n    useCase = 'feature_development';\n  } else {\n    useCase = 'general_engineering';\n  }\n  confidence = 0.9;\n}\n// Customer Department\nelse if (messageLower.match(/\\b(customer|support|success|retention|onboarding|satisfaction|nps|churn)\\b/)) {\n  department = 'customer';\n  keywords.push(...messageLower.match(/\\b(customer|support|success|retention|onboarding|satisfaction|nps|churn)\\b/g));\n  \n  if (messageLower.includes('success')) {\n    useCase = 'customer_success';\n  } else if (messageLower.includes('support') || messageLower.includes('ticket')) {\n    useCase = 'support_operations';\n  } else if (messageLower.includes('onboarding')) {\n    useCase = 'customer_onboarding';\n  } else {\n    useCase = 'general_customer';\n  }\n  confidence = 0.85;\n}\n// Back Office Department\nelse if (messageLower.match(/\\b(finance|financial|budget|expense|payroll|accounting|invoice|payment|cash flow)\\b/)) {\n  department = 'back_office';\n  keywords.push(...messageLower.match(/\\b(finance|financial|budget|expense|payroll|accounting|invoice|payment|cash flow)\\b/g));\n  \n  if (messageLower.includes('report') || messageLower.includes('financial')) {\n    useCase = 'financial_reporting';\n  } else if (messageLower.includes('payroll')) {\n    useCase = 'payroll_management';\n  } else if (messageLower.includes('budget')) {\n    useCase = 'budget_planning';\n  } else {\n    useCase = 'general_finance';\n  }\n  confidence = 0.9;\n}\n// Security Department\nelse if (messageLower.match(/\\b(security|compliance|risk|audit|incident|breach|vulnerability|threat|soc|firewall|policy|llm|ai|owasp|prompt|injection)\\b/)) {\n  department = 'security';\n  keywords.push(...messageLower.match(/\\b(security|compliance|risk|audit|incident|breach|vulnerability|threat|soc|firewall|policy|llm|ai|owasp|prompt|injection)\\b/g));\n  \n  if (messageLower.match(/\\b(incident|breach|attack|response)\\b/)) {\n    useCase = 'incident_response';\n  } else if (messageLower.match(/\\b(compliance|audit|soc2|gdpr)\\b/)) {\n    useCase = 'compliance_management';\n  } else if (messageLower.match(/\\b(llm|ai|owasp|prompt|injection)\\b/)) {\n    useCase = 'llm_security';\n  } else if (messageLower.match(/\\b(threat|intelligence|cve)\\b/)) {\n    useCase = 'threat_intelligence';\n  } else if (messageLower.match(/\\b(risk|vulnerability)\\b/)) {\n    useCase = 'risk_management';\n  } else {\n    useCase = 'general_security';\n  }\n  confidence = 0.95;\n}\n\n// If no department matched, determine if it's a general query\nif (!department) {\n  if (messageLower.includes('status') || messageLower.includes('report') || messageLower.includes('overview')) {\n    department = 'executive';\n    useCase = 'status_report';\n    confidence = 0.7;\n  } else if (messageLower.includes('help') || messageLower.includes('what can you do')) {\n    department = 'executive';\n    useCase = 'capabilities_overview';\n    confidence = 0.8;\n  } else {\n    // Default to executive for general queries\n    department = 'executive';\n    useCase = 'general_inquiry';\n    confidence = 0.5;\n  }\n}\n\nreturn [{\n  json: {\n    messageId: messageId,\n    message: message,\n    channel: channel,\n    priority: priority,\n    analysis: {\n      department: department,\n      useCase: useCase,\n      confidence: confidence,\n      keywords: [...new Set(keywords)],\n      requiresSpecialization: confidence > 0.7\n    },\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "analyze_message",
+      "name": "Analyze Message & Route",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.analysis.department }}",
+              "operation": "equals",
+              "value2": "executive"
+            }
+          ]
+        }
+      },
+      "id": "is_executive",
+      "name": "Is Executive Query?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        650,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.jeweledtech.com/api/agent/execute",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "agent_id",
+              "value": "chief_ai_agent"
+            },
+            {
+              "name": "department",
+              "value": "executive"
+            },
+            {
+              "name": "task",
+              "value": "={{ 'Analyze and provide context for: ' + $json.message + ' (Department: ' + $json.analysis.department + ', Use Case: ' + $json.analysis.useCase + ')' }}"
+            },
+            {
+              "name": "parameters",
+              "value": "={{ { \"department\": $json.analysis.department, \"useCase\": $json.analysis.useCase, \"keywords\": $json.analysis.keywords } }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "query_knowledge",
+      "name": "Query Knowledge Base",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        850,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Handle Executive-level queries using API response\nconst apiResponse = $input.all()[0].json;\nconst originalData = $node[\"Analyze Message & Route\"].json;\n\n// Extract the result from API response\nconst knowledgeContext = apiResponse.result || \"System operational with all departments ready to assist.\";\n\nreturn [{\n  json: {\n    id: originalData.messageId,\n    text: knowledgeContext,\n    sender: 'Chief AI Agent',\n    department: 'executive',\n    agent: 'chief_ai_agent',\n    timestamp: new Date().toISOString(),\n    channel: originalData.channel,\n    analysis: originalData.analysis\n  }\n}];"
+      },
+      "id": "executive_response",
+      "name": "Generate Executive Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        850,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "jsCode": "// Prepare request for department head\nconst data = $input.all()[0].json;\n\n// Create department routing request\nconst routingRequest = {\n  messageId: data.messageId,\n  originalMessage: data.message,\n  department: data.analysis.department,\n  useCase: data.analysis.useCase,\n  priority: data.priority,\n  channel: data.channel,\n  keywords: data.analysis.keywords,\n  knowledgeContext: data.knowledgeContext,\n  tools: data.departmentTools,\n  chiefAnalysis: {\n    confidence: data.analysis.confidence,\n    requiresSpecialization: data.analysis.requiresSpecialization\n  },\n  timestamp: data.timestamp\n};\n\n// Add department-specific webhook URL\nconst departmentWebhooks = {\n  'sales': 'sales-department',\n  'marketing': 'marketing-department',\n  'product': 'product-department',\n  'customer': 'customer-department',\n  'back_office': 'backoffice-department',\n  'security': 'security-department'\n};\n\nreturn [{\n  json: {\n    ...routingRequest,\n    targetWebhook: departmentWebhooks[data.analysis.department] || 'executive-fallback'\n  }\n}];"
+      },
+      "id": "prepare_routing",
+      "name": "Prepare Department Routing",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        850,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_URL }}/webhook/api-bridge",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "agent_id",
+              "value": "={{ $json.department + '_head' }}"
+            },
+            {
+              "name": "department",
+              "value": "={{ $json.department }}"
+            },
+            {
+              "name": "task",
+              "value": "={{ $json.originalMessage }}"
+            },
+            {
+              "name": "parameters",
+              "value": "={{ { \"useCase\": $json.useCase, \"priority\": $json.priority, \"keywords\": $json.keywords, \"chiefAnalysis\": $json.chiefAnalysis } }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "call_department",
+      "name": "Call Department Head",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1050,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "jsCode": "// Log routing decision for monitoring\nconst analysis = $input.all()[0].json.analysis;\nconst messageId = $input.all()[0].json.messageId;\n\nconsole.log(`[Chief AI Agent] Message ${messageId} routed to ${analysis.department} department with use case: ${analysis.useCase} (confidence: ${analysis.confidence})`);\n\n// Pass through the response\nreturn $input.all();"
+      },
+      "id": "log_routing",
+      "name": "Log Routing Decision",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1250,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "Chief AI Webhook": {
+      "main": [
+        [
+          {
+            "node": "Analyze Message & Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Message & Route": {
+      "main": [
+        [
+          {
+            "node": "Is Executive Query?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Knowledge Base": {
+      "main": [
+        [
+          {
+            "node": "Generate Executive Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Executive Query?": {
+      "main": [
+        [
+          {
+            "node": "Query Knowledge Base",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Department Routing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Department Routing": {
+      "main": [
+        [
+          {
+            "node": "Call Department Head",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Department Head": {
+      "main": [
+        [
+          {
+            "node": "Log Routing Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "instanceId": "chief-ai-agent-orchestrator"
+  }
+}

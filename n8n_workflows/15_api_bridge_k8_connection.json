@@ -1,0 +1,126 @@
+{
+  "name": "API Bridge - Kubernetes Connection",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "api-bridge",
+        "httpMethod": "POST",
+        "responseMode": "lastNode"
+      },
+      "id": "bridge_webhook",
+      "name": "Bridge Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "webhookId": "api-bridge"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Process incoming request for agent execution\nconst items = $input.all();\nconst request = items[0].json.body;\n\n// Extract parameters from the request\nconst agentId = request.agent_id || request.agentId;\nconst department = request.department;\nconst task = request.task || request.message;\nconst parameters = request.parameters || {};\n\n// Prepare the request for the API\nreturn [{\n  json: {\n    agent_id: agentId,\n    department: department,\n    task: task,\n    parameters: parameters\n  }\n}];"
+      },
+      "id": "process_request",
+      "name": "Process Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.jeweledtech.com/api/agent/execute",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "agent_id",
+              "value": "={{ $json.agent_id }}"
+            },
+            {
+              "name": "department",
+              "value": "={{ $json.department }}"
+            },
+            {
+              "name": "task",
+              "value": "={{ $json.task }}"
+            },
+            {
+              "name": "parameters",
+              "value": "={{ $json.parameters }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "call_api",
+      "name": "Call Agent Execute API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        650,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Format the response from the API\nconst response = $input.all()[0].json;\n\nreturn [{\n  json: {\n    success: response.status === 'completed',\n    agent_id: response.agent_id,\n    department: response.department,\n    result: response.result,\n    timestamp: response.timestamp,\n    status: response.status\n  }\n}];"
+      },
+      "id": "format_response",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        850,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Bridge Webhook": {
+      "main": [
+        [
+          {
+            "node": "Process Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Request": {
+      "main": [
+        [
+          {
+            "node": "Call Agent Execute API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Agent Execute API": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "instanceId": "api-bridge-k8s"
+  }
+}

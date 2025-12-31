@@ -1,0 +1,92 @@
+{
+  "name": "Main API Gateway Health Check",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "main-api",
+        "httpMethod": "GET",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook_main_api",
+      "name": "Main API Health Check",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "main-api"
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "status",
+              "value": "ok"
+            },
+            {
+              "name": "service",
+              "value": "main-api-gateway"
+            },
+            {
+              "name": "timestamp",
+              "value": "={{ new Date().toISOString() }}"
+            },
+            {
+              "name": "message",
+              "value": "Main API Gateway is operational"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set_response",
+      "name": "Set Health Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "respond",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [650, 300]
+    }
+  ],
+  "connections": {
+    "webhook_main_api": {
+      "main": [
+        [
+          {
+            "node": "set_response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "set_response": {
+      "main": [
+        [
+          {
+            "node": "respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "main-api-health",
+  "meta": {
+    "instanceId": "n8n"
+  },
+  "tags": []
+}

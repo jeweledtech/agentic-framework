@@ -1,0 +1,110 @@
+{
+  "name": "Test - Correct CrewAI Integration Pattern",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "test-pattern",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook",
+      "name": "Test Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "webhookId": "test-pattern"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Step 1: Format request for CrewAI\n// n8n just passes data, doesn't make decisions\n\nconst body = $input.all()[0].json.body;\n\nconsole.log('Received request:', body);\n\nreturn [{\n  json: {\n    message: body.message || 'Test message',\n    context: {\n      source: 'n8n_test_webhook',\n      timestamp: new Date().toISOString()\n    }\n  }\n}];"
+      },
+      "id": "format",
+      "name": "Format for CrewAI",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.jeweledtech.com/chat",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "call_brain",
+      "name": "Call CrewAI Brain",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        650,
+        300
+      ],
+      "alwaysOutputData": true,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Step 2: CrewAI has responded with intelligence\n// Now we just execute what it tells us\n\nconst response = $json;\nconsole.log('CrewAI response:', response);\n\n// Check if we have an error\nif (response.error) {\n  return [{\n    json: {\n      success: false,\n      error: response.error,\n      message: 'CrewAI API error - check if service is running'\n    }\n  }];\n}\n\n// Return the CrewAI decision\nreturn [{\n  json: {\n    success: true,\n    crewai_response: response,\n    actions_to_execute: response.actions || [],\n    message: 'CrewAI made the decision, n8n will execute it'\n  }\n}];"
+      },
+      "id": "process",
+      "name": "Process CrewAI Decision",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        850,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Test Webhook": {
+      "main": [
+        [
+          {
+            "node": "Format for CrewAI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format for CrewAI": {
+      "main": [
+        [
+          {
+            "node": "Call CrewAI Brain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call CrewAI Brain": {
+      "main": [
+        [
+          {
+            "node": "Process CrewAI Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
