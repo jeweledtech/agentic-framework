@@ -5,6 +5,7 @@ These tools can be used by agents to perform various tasks.
 
 import os
 import uuid
+import json
 import logging
 import requests
 from typing import List, Dict, Any, Optional, ClassVar, Union, Callable
