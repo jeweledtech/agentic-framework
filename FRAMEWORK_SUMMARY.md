@@ -6,11 +6,18 @@ This is a production-ready open-source framework for building multi-agent AI sys
 
 ### Core Features
 - **Agent Architecture**: BaseAgent class with role-based configuration
-- **Multi-Agent Orchestration**: CrewBuilder for coordinating multiple agents
+- **Framework-Agnostic Orchestration**: Direct LLM execution by default, CrewAI as opt-in
 - **Tool System**: Extensible tools for web search, file operations, etc.
 - **Knowledge Base Integration**: RAG-ready architecture for enhanced agent intelligence
 - **REST API**: FastAPI server with comprehensive endpoints
 - **Local LLM Support**: Runs entirely on your infrastructure with Ollama
+
+### Execution Modes
+| Mode | Description | Dependencies |
+|------|-------------|-------------|
+| **Direct LLM** (default) | Agents call Ollama/LiteLLM directly | Core requirements only |
+| **CrewAI** (optional) | Multi-agent crews with process orchestration | `requirements-crewai.txt` |
+| **Mock** (testing) | Demo responses, no LLM needed | Set `USE_MOCK_KB=true` |
 
 ### Example Implementation
 - **ResearchAgent**: Demonstrates research, comparison, and fact-checking capabilities
@@ -34,8 +41,8 @@ agentic_framework_opensource/
 │       └── writer_agent.py
 ├── core/                   # Core framework
 │   ├── __init__.py
-│   ├── agent.py           # BaseAgent class
-│   ├── crew.py            # Multi-agent orchestration
+│   ├── agent.py           # BaseAgent class (direct LLM + optional CrewAI)
+│   ├── crew.py            # Crew orchestration (framework-agnostic)
 │   ├── llm_singleton.py   # LLM management
 │   └── tools.py           # Tool system
 ├── knowledge_bases/        # Knowledge management
@@ -53,7 +60,8 @@ agentic_framework_opensource/
 ├── api_server.py          # FastAPI server
 ├── docker-compose.yml     # Container orchestration
 ├── Dockerfile            # Container definition
-├── requirements.txt      # Python dependencies
+├── requirements.txt      # Core dependencies (no CrewAI)
+├── requirements-crewai.txt # Optional CrewAI dependencies
 ├── .env.example         # Environment template
 ├── README.md            # Main documentation
 ├── CONTRIBUTING.md      # Contribution guide
@@ -84,7 +92,7 @@ The open-source framework serves as both a valuable community tool and a marketi
 1. **Create GitHub Repository**
    ```bash
    # On GitHub: Create new public repo "agentic-framework"
-   
+
    cd agentic_framework_opensource
    git init
    git add .

@@ -26,7 +26,12 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 # Import framework components
 from agents.examples import ResearchAgent, WriterAgent
 from agents.executive_chat import ExecutiveChatAgent
-from core.crew import CrewBuilder
+
+try:
+    from core.crew import CrewBuilder, CREWAI_AVAILABLE
+except ImportError:
+    CrewBuilder = None
+    CREWAI_AVAILABLE = False
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -276,21 +281,32 @@ async def collaborate_agents(request: CollaborativeRequest):
 async def create_crew(agent_ids: List[str], crew_name: str = "Custom Crew"):
     """
     Create a crew of agents for complex tasks.
-    This demonstrates the crew orchestration capabilities.
+    Requires CrewAI to be installed (pip install -r requirements-crewai.txt).
     """
+    if not CREWAI_AVAILABLE:
+        raise HTTPException(
+            status_code=501,
+            detail={
+                "error": "CrewAI not installed",
+                "message": "Crew orchestration requires CrewAI. Install with: pip install -r requirements-crewai.txt",
+                "alternatives": [
+                    "Use /research, /write, /collaborate endpoints (work without CrewAI)",
+                    "Use /chat for general agent interactions"
+                ]
+            }
+        )
     try:
         # Map agent IDs to actual agents
         agent_map = {
             "research_agent": research_agent,
             "writer_agent": writer_agent
         }
-        
+
         agents = [agent_map.get(aid) for aid in agent_ids if aid in agent_map]
-        
+
         if not agents:
             raise ValueError("No valid agents specified")
-        
-        # This is a simplified example - in production, crews can execute complex workflows
+
         return {
             "crew_name": crew_name,
             "agents": agent_ids,

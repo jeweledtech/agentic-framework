@@ -3,10 +3,16 @@ from pydantic import BaseModel, Field
 import os
 from pathlib import Path
 
-# Import CrewAI
-from crewai import Agent, Task, Crew
-# from crewai.agent import AgentType
-CREWAI_AVAILABLE = True
+# Import CrewAI (optional — framework works without it)
+try:
+    from crewai import Agent, Task, Crew
+    CREWAI_AVAILABLE = True
+except ImportError:
+    CREWAI_AVAILABLE = False
+    Agent = None
+    Task = None
+    Crew = None
+    print("Info: CrewAI not installed. Using direct LLM execution (pip install crewai to enable).")
 
 # Import our components
 from core.llm_singleton import get_singleton_llm
@@ -42,10 +48,10 @@ class AgentConfig(BaseModel):
     verbose: bool = Field(False, description="Whether to log verbose output")
     department: str = Field("sales", description="Department the agent belongs to")
     python_class: Optional[str] = Field(None, description="Python class path for this agent")
-    
+
 class BaseAgent:
     """Base class for all agents in the system"""
-    
+
     def __init__(self, config: AgentConfig):
         """Initialize the agent with configuration"""
         self.config = config
@@ -54,11 +60,11 @@ class BaseAgent:
         self.tools = self._load_tools()
         self.crew_agent = self._create_crew_agent() if CREWAI_AVAILABLE else None
         self.tasks = []
-        
+
     def _load_tools(self) -> List[Any]:
         """Load the specified tools for this agent"""
         tools = []
-        
+
         # First, try to load tools from tools_code in config
         # This is the new approach from agents.yaml
         if hasattr(self.config, 'tools_code') and TOOLS_AVAILABLE:
@@ -66,7 +72,7 @@ class BaseAgent:
                 tool = get_tool_by_name(tool_code)
                 if tool:
                     tools.append(tool)
-        
+
         # If no tools loaded yet or tools_code not defined, fall back to tool_names
         if not tools:
             for tool_name in self.config.tools.tool_names:
@@ -76,7 +82,7 @@ class BaseAgent:
                     if tool:
                         tools.append(tool)
                         continue
-                
+
                 # Fall back to dummy tool if no real tool found
                 tool = {
                     "name": tool_name,
@@ -84,20 +90,20 @@ class BaseAgent:
                     "func": lambda x: f"Result from {tool_name}: {x}"
                 }
                 tools.append(tool)
-                
+
         return tools
-    
+
     def _create_crew_agent(self) -> Any:
         """Create a CrewAI agent based on the configuration"""
         if not CREWAI_AVAILABLE:
             return None
-            
+
         # In mock mode, don't create a CrewAI agent
         use_mock = os.environ.get('USE_MOCK_KB', 'false').lower() == 'true'
         if use_mock:
             # Return None to indicate we should use our own mock implementation
             return None
-            
+
         # Try to create a CrewAI agent with our local LLM
         try:
             crew_agent = Agent(
@@ -111,14 +117,14 @@ class BaseAgent:
             print(f"[OK] Created CrewAI agent with local LLM: {self.config.role.name}")
             return crew_agent
         except Exception as e:
-            print(f"[WARN] CrewAI agent creation failed ({e}), using direct implementation")
+            print(f"[WARN] CrewAI agent creation failed ({e}), using direct LLM execution")
             return None
-    
+
     def add_task(self, description: str, expected_output: str, context: Optional[Dict[str, Any]] = None) -> None:
         """Add a task to the agent's queue"""
         # Check if we're in mock mode
         use_mock = os.environ.get('USE_MOCK_KB', 'false').lower() == 'true'
-        
+
         if CREWAI_AVAILABLE and self.crew_agent and not use_mock:
             try:
                 # In normal mode, try with context
@@ -137,11 +143,11 @@ class BaseAgent:
                         expected_output=expected_output,
                         agent=self.crew_agent
                     )
-                
+
                 self.tasks.append(task)
             except Exception as e:
-                print(f"Error creating CrewAI task: {e}, falling back to mock task")
-                # Fallback to mock task
+                print(f"Error creating CrewAI task: {e}, falling back to dict task")
+                # Fallback to dict task
                 task = {
                     "description": description,
                     "expected_output": expected_output,
@@ -149,35 +155,43 @@ class BaseAgent:
                 }
                 self.tasks.append(task)
         else:
-            # Simple task structure for mock implementation
+            # Simple task structure for direct LLM or mock implementation
             task = {
                 "description": description,
                 "expected_output": expected_output,
                 "context": context or {}
             }
             self.tasks.append(task)
-    
+
     def execute_tasks(self) -> List[str]:
-        """Execute all queued tasks and return the results"""
+        """Execute all queued tasks and return the results.
+
+        Execution modes (in priority order):
+        1. Mock mode (USE_MOCK_KB=true) — returns demo data, no LLM needed
+        2. CrewAI mode — if crewai is installed and agent was created
+        3. Direct LLM mode — calls Ollama/LiteLLM directly (default)
+        """
         results = []
-        
+
         # If no tasks, return empty results
         if not self.tasks:
             return results
-        
+
         # Check if we're in mock mode
         use_mock = os.environ.get('USE_MOCK_KB', 'false').lower() == 'true'
-        
-        if CREWAI_AVAILABLE and self.crew_agent and not use_mock:
-            # Create a Crew with this agent and its tasks
+
+        if use_mock:
+            # Mock mode: generate demo responses
+            results = self._execute_tasks_mock()
+        elif CREWAI_AVAILABLE and self.crew_agent:
+            # CrewAI mode: use Crew.kickoff()
             crew = Crew(
                 agents=[self.crew_agent],
                 tasks=self.tasks,
                 verbose=self.config.verbose,
                 memory=False  # Disable memory to avoid Chroma requirements
             )
-            
-            # Execute the tasks
+
             try:
                 crew_results = crew.kickoff()
                 if isinstance(crew_results, list):
@@ -185,79 +199,87 @@ class BaseAgent:
                 else:
                     results = [crew_results]
             except Exception as e:
-                print(f"Error executing tasks for agent {self.config.id}: {e}")
-                # Fall back to mock implementation
-                results = self._execute_tasks_mock()
+                print(f"Error executing CrewAI tasks for agent {self.config.id}: {e}")
+                # Fall back to direct LLM
+                results = self._execute_tasks_direct_llm()
         else:
-            # Mock implementation for when CrewAI is not available or in mock mode
-            results = self._execute_tasks_mock()
-        
+            # Direct LLM mode: call the model directly (default path)
+            results = self._execute_tasks_direct_llm()
+
         # Clear the task queue
         self.tasks = []
-        
+
         return results
-        
-    def _execute_tasks_mock(self) -> List[str]:
-        """Execute tasks using the mock implementation"""
+
+    def _execute_tasks_direct_llm(self) -> List[str]:
+        """Execute tasks by calling the LLM directly.
+
+        This is the default execution path when CrewAI is not installed.
+        Builds a system prompt from the agent's role/goal/backstory and
+        sends each task to the LLM.
+        """
         results = []
-        
+
         for task in self.tasks:
             try:
                 if isinstance(task, dict):
-                    # Handle mock task
                     description = task.get("description", "")
                     expected_output = task.get("expected_output", "")
                     context = task.get("context", {})
                 else:
-                    # Handle CrewAI Task object
+                    # Handle CrewAI Task object that fell through
                     description = task.description
                     expected_output = task.expected_output
                     context = task.context
-                
-                # Check if we're in mock mode
-                use_mock = os.environ.get('USE_MOCK_KB', 'false').lower() == 'true'
-                
-                if use_mock:
-                    # In mock mode, generate a plausible demo response based on the task
-                    if "lead" in description.lower() and "generat" in description.lower():
-                        # Generate mock lead data
-                        mock_response = self._generate_mock_lead_data(description)
-                    elif "research" in description.lower():
-                        # Generate mock research data
-                        mock_response = self._generate_mock_research_data(description)
-                    else:
-                        # Generic mock response
-                        mock_response = f"Mock response for task: {description[:50]}..."
-                    
-                    results.append(mock_response)
-                else:
-                    # Use the LLM in non-mock mode
-                    system_prompt = f"""You are {self.config.role.name}, a {self.config.role.description}.
-                    Your goal is: {self.config.role.goal}
-                    Backstory: {self.config.role.backstory}
-                    
-                    Always respond in a professional manner, focusing on your expertise area.
-                    """
-                    
-                    user_prompt = f"""Task: {description}
-                    
-                    Expected output: {expected_output}
-                    
-                    Context: {context}
-                    
-                    Please complete this task to the best of your ability.
-                    """
-                    
-                    # Use the LLM to generate a response
-                    full_prompt = f"{system_prompt}\n\n{user_prompt}"
-                    response = self.llm(full_prompt)
-                    results.append(response)
+
+                system_prompt = f"""You are {self.config.role.name}, a {self.config.role.description}.
+Your goal is: {self.config.role.goal}
+Backstory: {self.config.role.backstory}
+
+Always respond in a professional manner, focusing on your expertise area."""
+
+                user_prompt = f"""Task: {description}
+
+Expected output: {expected_output}
+
+Context: {context}
+
+Please complete this task to the best of your ability."""
+
+                full_prompt = f"{system_prompt}\n\n{user_prompt}"
+                response = self.llm(full_prompt)
+                results.append(response)
             except Exception as e:
-                print(f"Error executing task: {e}")
+                print(f"Error executing task via direct LLM: {e}")
                 results.append(f"Error: {e}")
-        
+
         return results
-    
+
+    def _execute_tasks_mock(self) -> List[str]:
+        """Execute tasks using the mock implementation (demo data, no LLM)"""
+        results = []
+
+        for task in self.tasks:
+            try:
+                if isinstance(task, dict):
+                    description = task.get("description", "")
+                else:
+                    description = task.description
+
+                if "lead" in description.lower() and "generat" in description.lower():
+                    mock_response = self._generate_mock_lead_data(description)
+                elif "research" in description.lower():
+                    mock_response = self._generate_mock_research_data(description)
+                else:
+                    mock_response = f"Mock response for task: {description[:50]}..."
+
+                results.append(mock_response)
+            except Exception as e:
+                print(f"Error executing mock task: {e}")
+                results.append(f"Error: {e}")
+
+        return results
+
     def _generate_mock_lead_data(self, description: str) -> str:
         """Generate mock lead data for demo purposes"""
         return """Lead 1:
@@ -298,7 +320,7 @@ Industry: Leadership Development & Team Coaching
 Location: Austin, TX
 LinkedIn: linkedin.com/in/rebeccawilliams-momentum
 Notes: Mid-sized coaching firm experiencing growing pains with client management. Currently using a mix of Asana, Google Drive, and Calendly - looking for an integrated solution."""
-        
+
     def _generate_mock_research_data(self, description: str) -> str:
         """Generate mock research data for demo purposes"""
         return """# Company Research Report: Elevate Coaching Solutions
@@ -339,17 +361,17 @@ Sarah Johnson (Director of Operations) appears to be the key decision-maker for 
 
 Recommendation: Approach Sarah Johnson with a demo focused on coach management, client progress tracking, and Salesforce integration capabilities."""
 
-    
+
     def direct_query(self, query: str, system_prompt: Optional[str] = None) -> str:
         """Direct query to the agent's LLM"""
         if system_prompt is None:
             system_prompt = f"""You are {self.config.role.name}. {self.config.role.description}
             Your goal is: {self.config.role.goal}
             Backstory: {self.config.role.backstory}
-            
+
             Always respond in a professional manner, focusing on your expertise area.
             """
-        
+
         full_prompt = f"{system_prompt}\n\n{query}"
         return self.llm(full_prompt)
 

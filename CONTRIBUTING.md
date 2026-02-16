@@ -61,9 +61,11 @@ cd agentic-framework
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# Install dependencies
+# Install core dependencies
 pip install -r requirements.txt
-pip install -r requirements-dev.txt
+
+# Optional: Install CrewAI for crew orchestration testing
+pip install -r requirements-crewai.txt
 
 # Run tests
 pytest
@@ -72,6 +74,53 @@ pytest
 flake8 .
 black --check .
 ```
+
+## Orchestration Modes
+
+The framework supports three execution modes. **All contributions must work in all three modes:**
+
+### 1. Direct LLM (Default)
+Agents call Ollama/LiteLLM directly. No CrewAI dependency. This is the path most users will take.
+
+```bash
+# Test direct LLM mode
+python api_server.py
+curl http://localhost:8000/health
+```
+
+### 2. CrewAI (Optional)
+Multi-agent crews using CrewAI's process orchestration. Only available when `crewai` is installed.
+
+```bash
+# Test CrewAI mode
+pip install -r requirements-crewai.txt
+python api_server.py
+```
+
+### 3. Mock (Testing)
+No LLM required. Returns demo data. Used in CI/CD and local testing.
+
+```bash
+# Test mock mode
+USE_MOCK_KB=true python api_server.py
+USE_MOCK_KB=true pytest
+```
+
+### Writing Mode-Aware Code
+
+When modifying `core/agent.py` or `core/crew.py`, follow this pattern:
+
+```python
+# Always check CREWAI_AVAILABLE before using CrewAI classes
+if CREWAI_AVAILABLE and self.crew_agent:
+    # CrewAI path
+    ...
+else:
+    # Direct LLM path (must always work)
+    ...
+```
+
+The `CREWAI_AVAILABLE` flag is set at import time in both `core/agent.py` and `core/crew.py`.
 
 ## Project Structure
 
@@ -91,7 +140,7 @@ agentic-framework/
 When creating new example agents:
 
 1. Follow the pattern in `agents/examples/`
-2. Include comprehensive docstrings
+2. Ensure agents work with both direct LLM and CrewAI modes
 3. Add tests in `tests/agents/`
 4. Update documentation
 
@@ -99,18 +148,19 @@ Example:
 ```python
 class MyAgent(BaseAgent):
     """Clear description of what the agent does"""
-    
+
     def __init__(self, config=None):
         # Agent initialization
         pass
-    
+
     def perform_task(self, input_data):
         """
-        Clear description of the task
-        
+        Clear description of the task.
+        Works in all execution modes (direct LLM, CrewAI, mock).
+
         Args:
             input_data: Description of input
-            
+
         Returns:
             Description of output
         """
@@ -120,6 +170,7 @@ class MyAgent(BaseAgent):
 ## Testing
 
 - Write tests for all new functionality
+- Test all three execution modes (direct, CrewAI, mock)
 - Maintain test coverage above 80%
 - Use meaningful test names
 - Include both unit and integration tests
@@ -133,6 +184,9 @@ pytest --cov=.
 
 # Run specific test file
 pytest tests/test_agents.py
+
+# Run in mock mode (CI-friendly, no LLM needed)
+USE_MOCK_KB=true pytest
 ```
 
 ## Documentation
@@ -162,4 +216,4 @@ Feel free to:
 - Ask in GitHub Discussions
 - Reach out on Discord
 
-Thank you for contributing to JeweledTech Agentic Framework! 🎉
+Thank you for contributing to JeweledTech Agentic Framework!

@@ -1629,52 +1629,94 @@ async def execute_outbound_campaign(criteria: dict):
     }
 ```
 
-### Crew Creation Pattern
+### Crew Creation Pattern (Framework-Agnostic)
 
 ```python
 """
-Using CrewAI for multi-agent collaboration.
+Multi-agent collaboration using CrewBuilder.
+Works with both direct LLM and CrewAI modes.
 """
 
-from crewai import Crew, Task
-from agents.marketing.content.blog_writer import BlogWriterAgent
-from agents.product.qa.code_reviewer import CodeReviewerAgent
+from core.crew import CrewBuilder, TaskLoader
 
 
 def create_content_crew():
-    """Create a content production crew."""
-    writer = BlogWriterAgent()
-    reviewer = CodeReviewerAgent()  # For reviewing code snippets in content
+    """Create a content production crew.
 
-    # Create CrewAI-compatible agents
-    crew_agents = [
-        writer._create_crew_agent(),
-        reviewer._create_crew_agent()
-    ]
-
-    # Define tasks
-    tasks = [
-        Task(
-            description="Write a technical blog post about API design",
-            expected_output="Complete blog post with code examples",
-            agent=crew_agents[0]
-        ),
-        Task(
-            description="Review code examples in the blog post",
-            expected_output="Validated code examples",
-            agent=crew_agents[1]
-        )
-    ]
-
-    # Create and run crew
-    crew = Crew(
-        agents=crew_agents,
-        tasks=tasks,
-        verbose=True
+    This works regardless of whether CrewAI is installed:
+    - With CrewAI: Uses Crew.kickoff() for orchestration
+    - Without CrewAI: Executes tasks sequentially via direct LLM
+    """
+    # Create crew with agent IDs — CrewBuilder resolves them
+    crew = CrewBuilder.create_crew(
+        name="Content Production",
+        agents=["content_ideation_agent", "head_of_content"],
+        tasks=[
+            {
+                "description": "Write a technical blog post about API design",
+                "expected_output": "Complete blog post with code examples",
+                "agent": None  # Will be assigned by crew
+            },
+            {
+                "description": "Review and refine the blog post",
+                "expected_output": "Polished blog post ready for publication",
+                "agent": None
+            }
+        ]
     )
 
-    result = crew.kickoff()
-    return result
+    # Run the crew — automatically picks the right execution mode
+    results = CrewBuilder.run_crew(crew)
+    return results
+```
+
+### CrewAI-Specific Pattern (Optional)
+
+If you need CrewAI-specific features (process types, memory, etc.):
+
+```python
+"""
+CrewAI-specific orchestration (only when crewai is installed).
+"""
+
+from core.crew import CREWAI_AVAILABLE
+
+if CREWAI_AVAILABLE:
+    from crewai import Crew, Task
+    from agents.marketing.content.blog_writer import BlogWriterAgent
+    from agents.product.qa.code_reviewer import CodeReviewerAgent
+
+    def create_advanced_crew():
+        """Create a crew with CrewAI-specific features."""
+        writer = BlogWriterAgent()
+        reviewer = CodeReviewerAgent()
+
+        crew_agents = [
+            writer._create_crew_agent(),
+            reviewer._create_crew_agent()
+        ]
+
+        tasks = [
+            Task(
+                description="Write a technical blog post about API design",
+                expected_output="Complete blog post with code examples",
+                agent=crew_agents[0]
+            ),
+            Task(
+                description="Review code examples in the blog post",
+                expected_output="Validated code examples",
+                agent=crew_agents[1]
+            )
+        ]
+
+        crew = Crew(
+            agents=crew_agents,
+            tasks=tasks,
+            verbose=True
+        )
+
+        result = crew.kickoff()
+        return result
 ```
 
 ---

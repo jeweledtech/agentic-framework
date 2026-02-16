@@ -17,6 +17,20 @@ This isn't just another AI agent creation tool. It's a blueprint for architectin
 
 ---
 
+## Bring Your Own Orchestration
+
+The framework is **orchestration-agnostic** — it calls your LLM directly by default, with no external agent framework required. Need more sophisticated multi-agent workflows? Plug in your preferred orchestration layer:
+
+| Mode | Install | Best For |
+|------|---------|----------|
+| **Direct LLM** (default) | `pip install -r requirements.txt` | Single-agent tasks, simple pipelines, minimal dependencies |
+| **CrewAI** (optional) | `pip install -r requirements-crewai.txt` | Multi-agent crews with process management |
+| **Mock** (testing) | Set `USE_MOCK_KB=true` | Demo mode, CI/CD, no LLM needed |
+
+All agents work identically regardless of mode — the orchestration layer only affects how multi-agent crews coordinate.
+
+---
+
 ## Complete Organization Chart
 
 ![JeweledTech Agentic Framework - Organization Chart](docs/images/org-chart.png)
@@ -99,11 +113,11 @@ The framework includes **87 pre-built n8n workflows** for business process autom
           ┌────────▼────────┐
           │    Framework    │
           │   API Server    │
-          │  localhost:8000 │
+          │  localhost:8080 │
           └────────┬────────┘
                    │
           ┌────────▼────────┐
-          │   CrewAI Agents │
+          │   Agent Engine  │
           │  7 Departments  │
           │   15+ Agents    │
           └─────────────────┘
@@ -157,7 +171,7 @@ cd agentic-framework
 python -m venv venv
 source venv/bin/activate  # or .\venv\Scripts\activate on Windows
 
-# Install dependencies
+# Install dependencies (no CrewAI needed)
 pip install -r requirements.txt
 
 # Create .env file
@@ -167,34 +181,44 @@ cp .env.example .env
 USE_MOCK_KB=true python api_server.py
 ```
 
-### Option 2: With Ollama (Full AI Capabilities)
+### Option 2: With Ollama (Full AI — Direct LLM)
 
 ```bash
 # Start Ollama
 ollama serve
 
 # Pull a model
-ollama pull llama3.2:3b
+ollama pull llama3.1
 
-# Start API server
+# Start API server (uses direct LLM calls by default)
 python api_server.py
 ```
 
-### Option 3: Docker Deployment
+### Option 3: With CrewAI (Multi-Agent Crews)
+
+```bash
+# Install optional CrewAI dependencies
+pip install -r requirements-crewai.txt
+
+# Start API server (CrewAI auto-detected)
+python api_server.py
+```
+
+### Option 4: Docker Deployment
 
 ```bash
 # Development
-docker-compose up -d
+docker compose up -d
 
 # Production (with GPU support)
-docker-compose -f docker-compose.production.yml up -d
+docker compose -f docker-compose.production.yml up -d
 ```
 
 ---
 
 ## API Endpoints
 
-Once running, access the API at `http://localhost:8000`:
+Once running, access the API at `http://localhost:8080`:
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -204,6 +228,7 @@ Once running, access the API at `http://localhost:8000`:
 | `/write` | POST | Generate content |
 | `/collaborate` | POST | Multi-agent collaboration |
 | `/chat` | POST | Executive chat interface |
+| `/crew/create` | POST | Create agent crew (requires CrewAI) |
 | `/docs` | GET | Interactive API documentation |
 
 ---
@@ -215,7 +240,7 @@ Once running, access the API at `http://localhost:8000`:
 ```env
 # LLM Configuration
 OLLAMA_HOST=http://localhost:11434
-OLLAMA_MODEL=llama3.2:3b
+OLLAMA_MODEL=llama3.1
 
 # API Server
 API_HOST=0.0.0.0
@@ -242,7 +267,8 @@ agentic-framework/
 │   ├── examples/        # Research & Writer agents
 │   └── executive_chat.py
 ├── core/
-│   ├── agent.py         # BaseAgent class
+│   ├── agent.py         # BaseAgent class (direct LLM + optional CrewAI)
+│   ├── crew.py          # Crew orchestration (framework-agnostic)
 │   ├── llm_singleton.py # LLM management
 │   └── tools.py         # Tool implementations
 ├── n8n_workflows/       # 87 workflow templates
@@ -255,7 +281,8 @@ agentic-framework/
 ├── api_server.py        # FastAPI server
 ├── docker-compose.yml   # Development deployment
 ├── docker-compose.production.yml  # Production w/ GPU
-└── requirements.txt     # Python dependencies
+├── requirements.txt     # Core dependencies
+└── requirements-crewai.txt  # Optional CrewAI deps
 ```
 
 ---
@@ -296,6 +323,6 @@ MIT License - See [LICENSE](LICENSE) for details.
 
 ---
 
-**Built with CrewAI, LangChain, FastAPI, and n8n**
+**Framework-agnostic agent engine built with FastAPI, Ollama, and n8n**
 
 *Let's build the future of the enterprise, together.*

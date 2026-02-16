@@ -1,11 +1,15 @@
 # JeweledTech Agentic Framework - Core Dependencies
-# Updated: 2025-12-30
+# Updated: 2026-02-16
 
-# Core AI frameworks
-crewai>=0.120.1
-langchain>=0.3.20
-langchain-community>=0.3.20
-langchain-core>=0.3.35
+# Agent Orchestration (optional — bring your own framework)
+# CrewAI and LangChain are NOT required. The framework uses direct LLM
+# calls by default. To enable CrewAI orchestration:
+#   pip install -r requirements-crewai.txt
+# crewai>=0.120.1
+# langchain>=0.3.20
+# langchain-community>=0.3.20
+# langchain-core>=0.3.35
+
 pydantic>=2.10.0
 
 # API framework

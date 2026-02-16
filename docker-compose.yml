@@ -5,22 +5,22 @@ services:
     build: .
     container_name: agentic-framework-api
     ports:
-      - "8000:8000"
+      - "8080:8000"
     environment:
-      - OLLAMA_HOST=http://ollama:11434
-      - OLLAMA_MODEL=llama3.2:3b
+      - OLLAMA_HOST=http://host.docker.internal:11434
+      - OLLAMA_MODEL=llama3.1
       - USE_MOCK_KB=false
       - PYTHONUNBUFFERED=1
       # n8n Integration (uses n8n's native Instance-level MCP)
       - N8N_HOST=${N8N_HOST:-https://localhost}
       - N8N_MCP_SERVER_URI=${N8N_MCP_SERVER_URI:-https://localhost/mcp-server/http}
-      - FRAMEWORK_API_KEY=${FRAMEWORK_API_KEY:-dev-key}
-      - ENABLE_AUTH=${ENABLE_AUTH:-true}
+      - FRAMEWORK_API_KEY=${FRAMEWORK_API_KEY:-dev-key-jeweledtech}
+      - ENABLE_AUTH=${ENABLE_AUTH:-false}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./knowledge_bases:/app/knowledge_bases
       - ./agents:/app/agents
-    depends_on:
-      - ollama
     networks:
       - agentic-network
     healthcheck:
@@ -30,21 +30,22 @@ services:
       retries: 3
       start_period: 40s
 
-  ollama:
-    image: ollama/ollama:latest
-    container_name: agentic-framework-ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama-data:/root/.ollama
-    networks:
-      - agentic-network
-    deploy:
-      resources:
-        limits:
-          memory: 8G
-        reservations:
-          memory: 4G
+  # Ollama disabled — sharing host Ollama via host.docker.internal
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: agentic-framework-ollama
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama-data:/root/.ollama
+  #   networks:
+  #     - agentic-network
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         memory: 8G
+  #       reservations:
+  #         memory: 4G
 
   # n8n MCP Bridge (optional - enable when connecting to n8n)
   # n8n-mcp:
@@ -65,22 +66,22 @@ services:
   #     timeout: 10s
   #     retries: 3
 
-  # Optional: Demo UI (uncomment to enable)
+  # Optional: Demo UI (uncomment to enable, mapped to 3001 to avoid conflict)
   # demo-ui:
   #   build: ./demo-ui
   #   container_name: agentic-framework-ui
   #   ports:
-  #     - "3000:3000"
+  #     - "3001:3000"
   #   environment:
-  #     - REACT_APP_API_URL=http://localhost:8000
+  #     - REACT_APP_API_URL=http://localhost:8080
   #   depends_on:
   #     - api
   #   networks:
   #     - agentic-network
 
-volumes:
-  ollama-data:
-    driver: local
+# volumes:
+#   ollama-data:
+#     driver: local
 
 networks:
   agentic-network:

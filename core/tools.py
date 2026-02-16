@@ -1247,8 +1247,8 @@ def create_mock_tool(tool_name: str, tool_description: str, func: Optional[Calla
     
     # Fallback to dictionary format
     return {
-        "name": name,
-        "description": description,
+        "name": tool_name,
+        "description": tool_description,
         "func": func
     }
 

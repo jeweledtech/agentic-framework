@@ -1,0 +1,12 @@
+# CrewAI Orchestration Dependencies (optional)
+#
+# Install these to enable CrewAI-based crew orchestration:
+#   pip install -r requirements-crewai.txt
+#
+# Without these, the framework uses direct LLM calls for all agent tasks.
+# CrewAI adds multi-agent workflow orchestration with process management.
+
+crewai>=0.120.1
+langchain>=0.3.20
+langchain-community>=0.3.20
+langchain-core>=0.3.35
