@@ -184,7 +184,7 @@ jobs:
           .
 
     - name: Push Docker images
-      if: ${{ secrets.DOCKER_USERNAME != '' }}
+      if: ${{ env.DOCKER_USERNAME != '' }}
       env:
         DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
         DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
