@@ -31,6 +31,24 @@ All agents work identically regardless of mode — the orchestration layer only 
 
 ---
 
+## LLM Providers
+
+| Provider | Install | Default Model | Best For |
+|----------|---------|---------------|----------|
+| Ollama | `pip install "jeweledtech-agentic-framework[ollama]"` | llama3:8b | Local development |
+| Anthropic | `pip install "jeweledtech-agentic-framework[anthropic]"` | claude-sonnet-4-20250514 | Production (cost-efficient) |
+| OpenAI | `pip install "jeweledtech-agentic-framework[openai]"` | gpt-4o | OpenAI ecosystem |
+| LiteLLM | `pip install "jeweledtech-agentic-framework[litellm]"` | (configurable) | Multi-provider routing |
+| Mock | (built-in) | mock_model | Testing / CI |
+
+**Heritage business deployments:** For client-facing work requiring highest quality, use `claude-opus-4-6`:
+```python
+from core.providers.llm import AnthropicProvider
+provider = AnthropicProvider(model="claude-opus-4-6")
+```
+
+---
+
 ## Complete Organization Chart
 
 ![JeweledTech Agentic Framework - Organization Chart](docs/images/org-chart.png)
