@@ -1,0 +1,123 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jeweledtech-agentic-framework"
+dynamic = ["version"]
+description = "Open-source framework for building multi-agent AI systems with bring-your-own-anything provider support"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.11"
+authors = [
+    {name = "JeweledTech", email = "info@jeweledtech.com"},
+]
+keywords = ["ai", "agents", "multi-agent", "framework", "llm", "crewai"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+# Minimal base dependencies — no LLM-specific packages
+dependencies = [
+    "pydantic>=2.10.0",
+    "fastapi>=0.115.9",
+    "uvicorn>=0.34.0",
+    "starlette>=0.45.0",
+    "requests>=2.32.3",
+    "httpx>=0.28.1",
+    "aiohttp>=3.11.0",
+    "python-dotenv>=1.0.1",
+    "tenacity>=9.0.0",
+    "pyyaml>=6.0.2",
+    "orjson>=3.10.0",
+]
+
+[project.optional-dependencies]
+ollama = [
+    "langchain>=0.3.20",
+    "langchain-community>=0.3.20",
+]
+litellm = [
+    "litellm>=1.68.0",
+]
+anthropic = [
+    "anthropic>=0.40.0",
+]
+openai = [
+    "openai>=1.75.0",
+]
+crewai = [
+    "crewai>=0.120.1",
+    "langchain>=0.3.20",
+    "langchain-community>=0.3.20",
+    "langchain-core>=0.3.35",
+]
+chromadb = [
+    "chromadb>=0.6.0",
+]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=5.0.0",
+    "pytest-mock>=3.14.0",
+    "httpx>=0.28.1",
+    "black>=24.0.0",
+    "isort>=5.13.0",
+    "mypy>=1.11.0",
+]
+docs = [
+    "mkdocs>=1.6.0",
+    "mkdocs-material>=9.5.0",
+]
+all = [
+    "jeweledtech-agentic-framework[ollama,anthropic,litellm,openai,crewai,chromadb,dev,docs]",
+]
+
+[project.urls]
+Homepage = "https://github.com/JeweledTech/agentic-framework"
+Documentation = "https://jeweledtech.com/docs"
+Repository = "https://github.com/JeweledTech/agentic-framework"
+Issues = "https://github.com/JeweledTech/agentic-framework/issues"
+
+[project.scripts]
+agentic-server = "api_server:main"
+
+[tool.setuptools.dynamic]
+version = {attr = "core._version.__version__"}
+
+[tool.setuptools.packages.find]
+include = ["core*", "agents*", "knowledge_bases*", "tools*"]
+
+[tool.setuptools.package-data]
+knowledge_bases = ["**/*.md", "**/*.txt"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "."]
+env = [
+    "USE_MOCK_KB=true",
+]
+markers = [
+    "integration: marks tests that require external services",
+    "slow: marks tests that take a long time to run",
+]
+
+[tool.black]
+line-length = 120
+target-version = ["py311"]
+
+[tool.isort]
+profile = "black"
+line_length = 120
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
