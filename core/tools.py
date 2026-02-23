@@ -1078,10 +1078,15 @@ class N8NMCPTool(BaseTool):
                 # Try parsing as regular JSON
                 try:
                     result_data = response.json()
-                except json.JSONDecodeError:
+                    if not isinstance(result_data, dict):
+                        return f"Could not parse n8n MCP response: {response_text[:200]}"
+                except (json.JSONDecodeError, ValueError, TypeError):
                     return f"Could not parse n8n MCP response: {response_text[:200]}"
 
-            logger.info(f"n8n MCP Response: {json.dumps(result_data)[:200]}...")
+            try:
+                logger.info(f"n8n MCP Response: {json.dumps(result_data)[:200]}...")
+            except (TypeError, ValueError):
+                logger.info(f"n8n MCP Response: {str(result_data)[:200]}...")
 
             if "error" in result_data:
                 return f"n8n MCP Error: {result_data['error']}"
@@ -1097,15 +1102,15 @@ class N8NMCPTool(BaseTool):
 
     def call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> str:
         """Call a specific tool exposed by n8n MCP"""
-        return self._run("tools/call", {
+        return N8NMCPTool._run(self, "tools/call", {
             "name": tool_name,
             "arguments": arguments
         })
 
 
 class N8NTriggerWorkflowTool(N8NMCPTool):
-    """Tool for executing n8n workflows via MCP"""
-    name: str = "n8n Execute Workflow Tool"
+    """Tool for triggering n8n workflows via MCP"""
+    name: str = "n8n Trigger Workflow Tool"
     description: str = (
         "Executes an n8n workflow by ID. First use search_workflows to find "
         "workflows, then get_workflow_details for input schema."
@@ -1121,7 +1126,7 @@ class N8NTriggerWorkflowTool(N8NMCPTool):
 
 class N8NListWorkflowsTool(N8NMCPTool):
     """Tool for searching n8n workflows via MCP"""
-    name: str = "n8n Search Workflows Tool"
+    name: str = "n8n List Workflows Tool"
     description: str = (
         "Searches for n8n workflows. Use query parameter to filter by name/description."
     )
@@ -1157,16 +1162,24 @@ class N8NSalesAutomationTool(N8NMCPTool):
     name: str = "n8n Sales Automation Tool"
     description: str = (
         "Triggers sales automation workflows in n8n via MCP. "
+        "Supported actions: nurture_lead, qualify_lead, update_crm. "
         "First use list_tools() to discover available sales workflows, "
         "then call them with appropriate data."
     )
+    workflow_map: Dict[str, str] = {
+        "nurture_lead": "sales_nurture_lead",
+        "qualify_lead": "sales_qualify_lead",
+        "update_crm": "sales_update_crm",
+    }
 
-    def _run(self, workflow_name: str, lead_data: Dict[str, Any]) -> str:
+    def _run(self, action: str = "", lead_data: Optional[Dict[str, Any]] = None, **kwargs) -> str:
         """Trigger a sales workflow via n8n MCP"""
-        # Call the workflow tool directly via MCP
+        workflow_name = self.workflow_map.get(action)
+        if workflow_name is None:
+            return f"Unknown sales action: '{action}'. Available actions: {list(self.workflow_map.keys())}"
         return self.call_tool(workflow_name, {
             "action": "sales",
-            "data": lead_data
+            "data": lead_data or {}
         })
 
     def discover_sales_workflows(self) -> str:
