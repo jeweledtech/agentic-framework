@@ -282,6 +282,66 @@ class AnthropicProvider(LLMProvider):
         return response.content[0].text
 
 
+class OpenAIProvider(LLMProvider):
+    """LLM provider using the OpenAI SDK directly."""
+
+    def __init__(
+        self,
+        model: str = "gpt-4o",
+        api_key: str | None = None,
+        max_tokens: int = 4096,
+        temperature: float = 0.7,
+    ):
+        self._model = model
+        self._api_key = api_key or os.environ.get("OPENAI_API_KEY")
+        self._max_tokens = max_tokens
+        self._temperature = temperature
+        self._client: Any = None
+        self._checked = False
+        self._available = False
+
+    @property
+    def provider_name(self) -> str:
+        return "openai"
+
+    def _get_client(self) -> Any:
+        if self._client is None:
+            try:
+                import openai
+                self._client = openai.OpenAI(api_key=self._api_key)
+            except ImportError:
+                raise ImportError(
+                    "OpenAI provider requires the openai package. "
+                    "Install with: pip install 'jeweledtech-agentic-framework[openai]'"
+                )
+        return self._client
+
+    def is_available(self) -> bool:
+        if self._checked:
+            return self._available
+        if not self._api_key:
+            self._checked = True
+            self._available = False
+            return False
+        try:
+            self._get_client()
+            self._available = True
+        except (ImportError, Exception):
+            self._available = False
+        self._checked = True
+        return self._available
+
+    def generate(self, prompt: str, **kwargs) -> str:
+        client = self._get_client()
+        response = client.chat.completions.create(
+            model=self._model,
+            max_tokens=kwargs.get("max_tokens", self._max_tokens),
+            temperature=kwargs.get("temperature", self._temperature),
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return response.choices[0].message.content
+
+
 class LiteLLMProvider(LLMProvider):
     """LLM provider that uses LiteLLM for multi-provider routing.
 
@@ -333,6 +393,7 @@ def _register_builtins() -> None:
     registry = LLMRegistry()
     registry.register("ollama", OllamaProvider)
     registry.register("anthropic", AnthropicProvider)
+    registry.register("openai", OpenAIProvider)
     registry.register("mock", MockLLMProvider)
     registry.register("litellm", LiteLLMProvider)
 
