@@ -12,7 +12,6 @@ from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 from typing import Dict, List, Any, Optional
 import os
-import sys
 import logging
 from datetime import datetime
 
@@ -20,12 +19,16 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Add the current directory to Python path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# Version from single source of truth
+try:
+    from core._version import __version__
+except ImportError:
+    __version__ = "0.0.0-dev"
 
 # Import framework components
 from agents.examples import ResearchAgent, WriterAgent
 from agents.executive_chat import ExecutiveChatAgent
+from core.audit import get_audit_logger
 
 try:
     from core.crew import CrewBuilder, CREWAI_AVAILABLE
@@ -37,7 +40,7 @@ except ImportError:
 app = FastAPI(
     title="JeweledTech Agentic Framework",
     description="Open-source framework for building multi-agent AI systems",
-    version="1.0.0"
+    version=__version__,
 )
 
 # Add CORS middleware
@@ -48,6 +51,34 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Audit middleware — logs every request
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
+import time
+
+
+class AuditMiddleware(BaseHTTPMiddleware):
+    """Middleware that logs every API request to the audit log."""
+
+    async def dispatch(self, request: Request, call_next):
+        start = time.monotonic()
+        response = await call_next(request)
+        duration_ms = (time.monotonic() - start) * 1000
+
+        audit = get_audit_logger()
+        audit.log_api_request(
+            method=request.method,
+            path=str(request.url.path),
+            status_code=response.status_code,
+            client_ip=request.client.host if request.client else "",
+            details={"duration_ms": round(duration_ms, 2)},
+        )
+        return response
+
+
+app.add_middleware(AuditMiddleware)
 
 # API Key Security (for n8n integration)
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
@@ -133,7 +164,7 @@ def read_root():
     """Welcome endpoint with framework information"""
     return {
         "framework": "JeweledTech Agentic Framework",
-        "version": "1.0.0",
+        "version": __version__,
         "description": "Open-source framework for building multi-agent AI systems",
         "endpoints": {
             "/": "This welcome page",
@@ -623,12 +654,12 @@ async def analyze_campaign(
         logger.error(f"Campaign analysis error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# Run the server
-if __name__ == "__main__":
+def main():
+    """Entry point for the agentic-server CLI command."""
     import uvicorn
-    
+
     print("\n" + "="*60)
-    print("[*] JeweledTech Agentic Framework")
+    print(f"[*] JeweledTech Agentic Framework v{__version__}")
     print("="*60)
     print("\nStarting API server...")
     print("Documentation available at: http://localhost:8000/docs")
@@ -639,5 +670,10 @@ if __name__ == "__main__":
     print("\n[TIP] Try the /collaborate endpoint to see agents working together!")
     print("\n[INFO] Need production-ready agents? Visit https://jeweledtech.com/enterprise")
     print("="*60 + "\n")
-    
+
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
+# Run the server
+if __name__ == "__main__":
+    main()

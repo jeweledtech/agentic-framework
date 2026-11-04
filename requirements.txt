@@ -1,14 +1,13 @@
 # JeweledTech Agentic Framework - Core Dependencies
-# Updated: 2026-02-16
+# Updated: 2026-02-20
+#
+# For optional dependencies, use pip install -e ".[ollama]" etc.
+# See pyproject.toml for all dependency groups.
 
 # Agent Orchestration (optional — bring your own framework)
 # CrewAI and LangChain are NOT required. The framework uses direct LLM
 # calls by default. To enable CrewAI orchestration:
 #   pip install -r requirements-crewai.txt
-# crewai>=0.120.1
-# langchain>=0.3.20
-# langchain-community>=0.3.20
-# langchain-core>=0.3.35
 
 pydantic>=2.10.0
 
@@ -16,10 +15,6 @@ pydantic>=2.10.0
 fastapi>=0.115.9
 uvicorn>=0.34.0
 starlette>=0.45.0
-
-# LLM providers
-openai>=1.75.0
-litellm>=1.68.0
 
 # HTTP & Networking
 requests>=2.32.3
@@ -32,18 +27,13 @@ tenacity>=9.0.0
 pyyaml>=6.0.2
 orjson>=3.10.0
 
-# Vector Database (optional - uncomment if needed)
-# chromadb>=0.6.0
+# LLM providers (optional — install via pyproject.toml groups)
+# pip install -e ".[ollama]"   → langchain, langchain-community
+# pip install -e ".[litellm]"  → litellm
+# pip install -e ".[openai]"   → openai
 
-# Web scraping (optional)
-# beautifulsoup4>=4.12.3
-
-# PDF processing (optional)
-# pypdf>=5.0.0
-# pdfplumber>=0.11.0
-
-# Local LLM support (optional - requires C++ compiler)
-# llama-cpp-python>=0.3.0
+# Vector Database (optional)
+# pip install -e ".[chromadb]"  → chromadb
 
 # Development
 pytest>=8.3.0
