@@ -10,6 +10,8 @@ import logging
 import requests
 from typing import List, Dict, Any, Optional, ClassVar, Union, Callable
 
+from core.approvals import gate_action
+
 # Configure logging
 logger = logging.getLogger(__name__)
 
@@ -296,7 +298,11 @@ class EmailSendingApiTool(BaseTool):
     
     def _run(self, recipient: str, subject: str, body: str) -> str:
         # This would connect to an actual email sending service
-        return f"Mock email sent to {recipient} with subject: {subject}"
+        return gate_action(
+            self.name, "email.send", {"recipient": recipient, "subject": subject, "body": body},
+            read_only=False,
+            execute=lambda: f"Mock email sent to {recipient} with subject: {subject}",
+        )
 
 class CrmApiTool(BaseTool):
     """Tool for interacting with the CRM API"""
@@ -309,7 +315,11 @@ class CrmApiTool(BaseTool):
     
     def _run(self, operation: str, data: Dict[str, Any]) -> str:
         # This would connect to an actual CRM API
-        return f"Mock CRM API {operation} operation completed with data: {data}"
+        return gate_action(
+            self.name, f"crm.{operation}", {"operation": operation, "data": data},
+            read_only=operation.lower() in ("read", "get", "list", "search"),
+            execute=lambda: f"Mock CRM API {operation} operation completed with data: {data}",
+        )
 
 class SequenceAutomationTool(BaseTool):
     """Tool for automating email sequences"""
@@ -322,7 +332,12 @@ class SequenceAutomationTool(BaseTool):
     
     def _run(self, sequence_name: str, steps: List[Dict[str, Any]], triggers: Dict[str, Any]) -> str:
         # This would connect to an actual sequence automation platform
-        return f"Mock sequence '{sequence_name}' created/updated with {len(steps)} steps"
+        return gate_action(
+            self.name, "sequence.create_or_update",
+            {"sequence_name": sequence_name, "steps": steps, "triggers": triggers},
+            read_only=False,
+            execute=lambda: f"Mock sequence '{sequence_name}' created/updated with {len(steps)} steps",
+        )
 
 class LeadScoringTool(BaseTool):
     """Tool for scoring leads"""
@@ -338,6 +353,28 @@ class LeadScoringTool(BaseTool):
         return f"Mock lead scoring completed for {len(leads)} leads based on provided criteria"
 
 # MCP SuperAssistant Tools
+# Remote functions that only read data. Every other MCP / n8n call has
+# side effects and must be approved by a human (see core/approvals.py).
+# Add a function here only if it cannot change anything.
+MCP_READ_ONLY_FUNCTIONS = frozenset({
+    "analytics.get_metrics",
+    "availability.check_availability",
+    "calendar.read_events",
+    "docs.read_documentation",
+    "email.read_messages",
+    "filesystem.list_directory",
+    "filesystem.read_file",
+    "filesystem.search_files",
+    "gmail.search_emails",
+    "notion.query_database",
+    "seo.analyze_content",
+    "seo.keyword_research",
+    "web.search",
+})
+
+N8N_READ_ONLY_TOOLS = frozenset({"search_workflows", "get_workflow_details"})
+
+
 class MCPSuperAssistantTool(BaseTool):
     """Generic tool for invoking functions on the MCP-SuperAssistant server"""
     
@@ -346,7 +383,18 @@ class MCPSuperAssistantTool(BaseTool):
     mcp_server_url: str = os.getenv("MCP_SERVER_URI", "http://localhost:3006/sse")
     
     def _run(self, mcp_function_name: str, parameters: Dict[str, Any]) -> str:
-        """Run a function on the MCP-SuperAssistant server"""
+        """Run a function on the MCP-SuperAssistant server.
+
+        Functions not on MCP_READ_ONLY_FUNCTIONS are queued for human approval.
+        """
+        return gate_action(
+            self.name, mcp_function_name, parameters,
+            read_only=mcp_function_name in MCP_READ_ONLY_FUNCTIONS,
+            execute=lambda: self._call_mcp(mcp_function_name, parameters),
+        )
+
+    def _call_mcp(self, mcp_function_name: str, parameters: Dict[str, Any]) -> str:
+        """Send the call to the MCP-SuperAssistant server (no approval check)."""
         call_id = str(uuid.uuid4())
         xml_payload = f"<function_calls><invoke name=\"{mcp_function_name}\" call_id=\"{call_id}\">"
         
@@ -1031,7 +1079,23 @@ class N8NMCPTool(BaseTool):
     n8n_host: str = os.getenv("N8N_HOST", "https://localhost")
 
     def _run(self, method: str, params: Dict[str, Any]) -> str:
-        """Execute an n8n operation via MCP protocol (JSON-RPC over HTTP)"""
+        """Execute an n8n operation via MCP protocol (JSON-RPC over HTTP).
+
+        Anything other than listing tools or calling a read-only n8n tool
+        (N8N_READ_ONLY_TOOLS) is queued for human approval.
+        """
+        read_only = method == "tools/list" or (
+            method == "tools/call" and params.get("name") in N8N_READ_ONLY_TOOLS
+        )
+        action = params.get("name", method) if method == "tools/call" else method
+        return gate_action(
+            self.name, f"n8n.{action}", params,
+            read_only=read_only,
+            execute=lambda: self._send(method, params),
+        )
+
+    def _send(self, method: str, params: Dict[str, Any]) -> str:
+        """Send the JSON-RPC call to n8n (no approval check)."""
         request_id = str(uuid.uuid4())
 
         # n8n MCP uses JSON-RPC 2.0 format

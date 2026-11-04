@@ -2,7 +2,7 @@
 
 ## Quick Reference
 
-- `python3 -m pytest tests/ -v --tb=short` — Run test suite (181 tests, 5 pre-existing failures in test_n8n_integration.py)
+- `python3 -m pytest tests/ -v --tb=short` — Run test suite (278 tests, all passing)
 - `python3 -m pytest tests/ --cov=core --cov=api_server --cov-report=term-missing` — Run with coverage
 - `pip install -e ".[dev]"` — Dev install (no LLM backend needed)
 - `pip install -e ".[dev,ollama]"` — Dev install with Ollama support
@@ -35,7 +35,8 @@ ABC interface → concrete providers → thread-safe singleton registry → env 
 - Optional deps use try/except import with graceful fallback (see CrewAI pattern in core/agent.py)
 - Version single source of truth: `core/_version.py`
 - Tests run with zero external services (mock KB, mock LLM, TestClient for API)
-- 5 pre-existing failures in tests/test_n8n_integration.py — tool name assertion mismatches, not our bug
+- Auth fails closed (ENABLE_AUTH defaults true). Every new route needs `Depends(require(Permission.X))` — tests/api/test_route_protection.py enforces it
+- Side-effecting MCP/n8n calls go through core/approvals.py gate_action; only add a remote function to MCP_READ_ONLY_FUNCTIONS / N8N_READ_ONLY_TOOLS if it cannot change anything
 
 ## Completed Work
 

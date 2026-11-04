@@ -101,6 +101,64 @@ policy = SecurityPolicy(
 ac = AccessControl(policy=policy)
 ```
 
+## API Authentication and Enforcement
+
+Authentication **fails closed**:
+
+- Auth is ON unless `ENABLE_AUTH=false` is set explicitly (local development only; the server logs a warning).
+- If auth is on and no API key is configured, the server **refuses to start**, and any protected request returns `503`.
+- Every route except `GET /` and `GET /health` requires an `X-API-Key` header. Missing or invalid key → `401`; valid key without the needed permission → `403`. Both are written to the audit log (`api.auth.failure`, `security.permission_denied`).
+- `tests/api/test_route_protection.py` enumerates every route in the app, so an endpoint added without a permission check fails CI.
+
+### API keys and roles
+
+Each key is bound to a department, and the department's role (see the mapping above) decides what the key can do:
+
+```bash
+FRAMEWORK_API_KEYS="<exec-key>:executive,<n8n-key>:admin,<sales-key>:sales,<mkt-key>:marketing"
+```
+
+The legacy single `FRAMEWORK_API_KEY` still works and is treated as an `executive` key. Keys are compared in constant time and only a hashed key id (`key-<sha256 prefix>`) is ever logged.
+
+### Route permissions
+
+| Route | Required permission | Who has it by default |
+|---|---|---|
+| `GET /`, `GET /health` | none (public) | everyone |
+| `GET /agents` | `api:read` | every department |
+| `POST /research`, `/write`, `/collaborate`, `/chat`, `/chat/analyze`, `/chat/reset` | `agent:execute` | every department |
+| `POST /sales/*` | `agent:execute` **and** department `sales` | sales, executive |
+| `POST /marketing/*` | `agent:execute` **and** department `marketing` | marketing, executive |
+| `POST /n8n/webhook` | `api:write` | admin, security (department heads), executive |
+| `POST /crew/create` | `agent:create` | executive |
+| `GET /approvals`, `POST /approvals/{id}/approve`, `POST /approvals/{id}/reject` | `api:admin` | executive |
+
+Wildcard permissions imply their specific forms (`api:*` → `api:read`/`api:write`/`api:admin`, `tool:*` → `tool:use`, `kb:read:*` → `kb:read:own`).
+
+Chat history is kept per caller: sessions are keyed by `(API key id, conversation_id)`, capped at 50 messages each and 1,000 sessions total. `/chat/reset` only clears the caller's own session.
+
+## Human Approval of Agent Actions
+
+Agents can't take an action with outside effects on their own. Every MCP call (`MCPSuperAssistantTool`) and every n8n call (`N8NMCPTool`) passes through `core/approvals.py:gate_action`, and so do the email, CRM and sequence tools.
+
+- **Read-only** remote functions run immediately. They are listed explicitly in `MCP_READ_ONLY_FUNCTIONS` and `N8N_READ_ONLY_TOOLS` in `core/tools.py`.
+- **Everything else** is queued instead: triggering or executing workflows, writing files, sending email, publishing, updating CRM or Notion records, payroll, invoices, CI/CD and so on. The agent receives `PENDING_HUMAN_APPROVAL: ... (approval id <id>)`, and nothing is sent.
+- A human with `api:admin` reviews the queue (`GET /approvals?status=pending`) and approves or rejects each action. An approved action runs **once**, immediately. A rejected or expired action never runs.
+- Pending actions expire after `APPROVAL_TTL_SECONDS` (default 24h).
+- Every request, approval, rejection and execution result is audited (`approval.requested`, `approval.approved`, `approval.rejected`, `approval.executed`), with the requesting and approving key ids.
+
+Because the gate sits at the transport layer, any new MCP or n8n tool requires approval by default. To exempt a remote function, add it to the read-only allowlist, and only if it cannot change anything.
+
+**Limitations:** the queue lives in process memory. A restart drops pending actions; they fail safe, meaning they never run. With multiple replicas, approve through the same instance that queued the action (use sticky sessions or a single replica for the API). `REQUIRE_HUMAN_APPROVAL=false` turns the gate off and is meant for local development only.
+
+| Environment Variable | Default | Description |
+|---|---|---|
+| `ENABLE_AUTH` | `true` | Set to `false` to disable API auth (development only) |
+| `FRAMEWORK_API_KEYS` | *(none)* | Comma-separated `key:department` pairs |
+| `FRAMEWORK_API_KEY` | *(none)* | Legacy single key, treated as `executive` |
+| `REQUIRE_HUMAN_APPROVAL` | `true` | Set to `false` to let agents run side-effecting tools without approval (development only) |
+| `APPROVAL_TTL_SECONDS` | `86400` | How long a pending action can be approved |
+
 ## Audit Logging
 
 All agent actions, KB access, API requests, and security decisions are logged as structured JSON events.

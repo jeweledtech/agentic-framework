@@ -36,6 +36,8 @@ def reset_singletons():
     VectorStoreRegistry.reset_singleton()
     WorkflowRegistry.reset_singleton()
     AuditLogger.reset_singleton()
+    from core.approvals import ApprovalQueue
+    ApprovalQueue.reset_singleton()
 
     # Re-register built-in providers for the next test
     from core.providers.llm import _register_builtins as llm_register

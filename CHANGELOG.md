@@ -5,6 +5,22 @@ All notable changes to the JeweledTech Agentic Framework will be documented in t
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Security
+
+- **Authentication now fails closed.** `ENABLE_AUTH` defaults to `true`; the server refuses to start when auth is on and no API key is configured.
+- **Every route except `/` and `/health` requires an API key.** Previously `/chat`, `/chat/analyze`, `/chat/reset`, `/research`, `/write`, `/collaborate`, `/crew/create` and `/agents` were unauthenticated.
+- **RBAC is enforced on every endpoint.** API keys map to departments via `FRAMEWORK_API_KEYS`; each route requires a `Permission`, and `/sales/*` and `/marketing/*` are restricted to their department (or executive).
+- **Human approval for side-effecting agent actions.** n8n workflow triggers and executions, MCP writes (files, email, calendar, CRM, Notion, publishing, payroll, CI/CD, ...), and the email, CRM and sequence tools are queued and only run after an `api:admin` key approves them via `/approvals`. Requests and decisions are audited.
+- Chat history is isolated per caller and bounded (50 messages per session, 1,000 sessions); `/chat/reset` only clears the caller's own session.
+- A route-enumeration test fails CI if an endpoint is added without a permission check.
+
+### Changed
+
+- Missing or invalid API key now returns `401` (was `403`); `403` now means "authenticated but not permitted".
+- `GET /agents` now requires an API key.
+
 ## [0.1.0] - 2026-02-20
 
 ### Added

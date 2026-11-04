@@ -5,9 +5,16 @@ Provides an AI-powered conversational interface for executive-level interactions
 business strategy discussions, and decision support.
 """
 
+from collections import OrderedDict
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 import os
+import threading
+
+# Bounds on in-memory conversation state
+MAX_HISTORY_PER_SESSION = 50   # messages kept per session (user + assistant)
+MAX_SESSIONS = 1000            # least-recently-used sessions are evicted
+DEFAULT_SESSION = "default"
 
 # Check if we're in mock mode
 USE_MOCK = os.environ.get('USE_MOCK_KB', 'false').lower() == 'true'
@@ -33,8 +40,9 @@ class ExecutiveChatAgent:
 
     def __init__(self):
         """Initialize the Executive Chat Agent"""
-        self.conversation_history: List[Dict[str, str]] = []
-        self.context: Dict[str, Any] = {}
+        # session_id -> {"history": [...], "context": {...}}; LRU-ordered
+        self._sessions: "OrderedDict[str, Dict[str, Any]]" = OrderedDict()
+        self._lock = threading.Lock()
 
         # In full mode, initialize with BaseAgent
         if BASE_AGENT_AVAILABLE and not USE_MOCK:
@@ -57,7 +65,24 @@ class ExecutiveChatAgent:
         else:
             self._base_agent = None
 
-    def chat(self, message: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def _session(self, session_id: str) -> Dict[str, Any]:
+        """Return (creating if needed) a session and mark it most recently used."""
+        with self._lock:
+            session = self._sessions.get(session_id)
+            if session is None:
+                session = {"history": [], "context": {}}
+                self._sessions[session_id] = session
+                while len(self._sessions) > MAX_SESSIONS:
+                    self._sessions.popitem(last=False)
+            else:
+                self._sessions.move_to_end(session_id)
+            return session
+
+    def session_count(self) -> int:
+        return len(self._sessions)
+
+    def chat(self, message: str, context: Optional[Dict[str, Any]] = None,
+             session_id: str = DEFAULT_SESSION) -> Dict[str, Any]:
         """
         Process a chat message and return a response.
 
@@ -68,12 +93,15 @@ class ExecutiveChatAgent:
         Returns:
             Response dictionary with message and metadata
         """
+        session = self._session(session_id)
+        history = session["history"]
+
         # Update context
         if context:
-            self.context.update(context)
+            session["context"].update(context)
 
         # Add to conversation history
-        self.conversation_history.append({
+        history.append({
             "role": "user",
             "content": message,
             "timestamp": datetime.now().isoformat()
@@ -88,17 +116,19 @@ class ExecutiveChatAgent:
             response_text = self._generate_mock_response(message)
 
         # Add response to history
-        self.conversation_history.append({
+        history.append({
             "role": "assistant",
             "content": response_text,
             "timestamp": datetime.now().isoformat()
         })
+        if len(history) > MAX_HISTORY_PER_SESSION:
+            del history[:-MAX_HISTORY_PER_SESSION]
 
         return {
             "message": response_text,
             "timestamp": datetime.now().isoformat(),
             "metadata": {
-                "conversation_length": len(self.conversation_history),
+                "conversation_length": len(history),
                 "mode": "mock" if USE_MOCK or not self._base_agent else "full"
             }
         }
@@ -179,11 +209,13 @@ class ExecutiveChatAgent:
             "timestamp": datetime.now().isoformat()
         }
 
-    def reset_conversation(self) -> None:
-        """Reset the conversation history"""
-        self.conversation_history = []
-        self.context = {}
+    def reset_conversation(self, session_id: str = DEFAULT_SESSION) -> None:
+        """Reset one session's conversation history and context"""
+        with self._lock:
+            self._sessions.pop(session_id, None)
 
-    def get_conversation_history(self) -> List[Dict[str, str]]:
-        """Get the full conversation history"""
-        return self.conversation_history
+    def get_conversation_history(self, session_id: str = DEFAULT_SESSION) -> List[Dict[str, str]]:
+        """Get one session's conversation history"""
+        with self._lock:
+            session = self._sessions.get(session_id)
+            return list(session["history"]) if session else []

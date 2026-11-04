@@ -282,10 +282,18 @@ class TestN8NMCPTools:
         mock_response.text = '<tool_output>Success</tool_output>'
         mock_post.return_value = mock_response
 
+        from core.approvals import ApprovalStatus, get_approval_queue
+
         tool = N8NTriggerWorkflowTool()
         result = tool._run(workflow_id="test-123", input_data={"key": "value"})
 
-        # Verify the call was made
+        # Triggering a workflow needs human approval: nothing is sent yet
+        assert result.startswith("PENDING_HUMAN_APPROVAL")
+        assert not mock_post.called
+
+        # After approval the HTTP call is made
+        pending = get_approval_queue().list(status=ApprovalStatus.PENDING)[0]
+        get_approval_queue().approve(pending.id, approver="test-human")
         assert mock_post.called
 
     def test_sales_automation_unknown_action(self):

@@ -100,6 +100,24 @@ EXECUTIVE = Role(
 )
 
 
+# Wildcard permissions and the specific permissions they imply.
+_IMPLIED_BY: Dict[Permission, FrozenSet[Permission]] = {
+    Permission.API_ALL: frozenset({Permission.API_READ, Permission.API_WRITE, Permission.API_ADMIN}),
+    Permission.TOOL_ALL: frozenset({Permission.TOOL_USE}),
+    Permission.KB_READ_ALL: frozenset({Permission.KB_READ_OWN}),
+    Permission.KB_WRITE_ALL: frozenset({Permission.KB_WRITE_OWN}),
+}
+
+
+def role_has_permission(role: Role, permission: Permission) -> bool:
+    """True if *role* holds *permission* directly or via a wildcard permission."""
+    if permission in role.permissions:
+        return True
+    return any(
+        permission in _IMPLIED_BY.get(held, frozenset()) for held in role.permissions
+    )
+
+
 class SecurityPolicy(BaseModel):
     """Maps departments to their default role."""
     model_config = {"arbitrary_types_allowed": True}
@@ -142,8 +160,7 @@ class AccessControl:
 
     def check_permission(self, department: str, permission: Permission) -> bool:
         """Check whether *department* has *permission*."""
-        role = self.get_role_for_department(department)
-        return permission in role.permissions
+        return role_has_permission(self.get_role_for_department(department), permission)
 
     def check_kb_access(self, agent_department: str, target_department: str) -> bool:
         """Check whether an agent in *agent_department* can read *target_department*'s KB.
