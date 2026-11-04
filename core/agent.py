@@ -17,6 +17,8 @@ except ImportError:
 # Import our components
 from core.llm_singleton import get_singleton_llm
 from knowledge_bases.kb_interface import get_kb_interface
+from core.security import AccessControl
+from core.audit import get_audit_logger
 
 # Try importing custom tools
 try:
@@ -52,11 +54,21 @@ class AgentConfig(BaseModel):
 class BaseAgent:
     """Base class for all agents in the system"""
 
-    def __init__(self, config: AgentConfig):
-        """Initialize the agent with configuration"""
+    def __init__(self, config: AgentConfig, llm_provider=None):
+        """Initialize the agent with configuration.
+
+        Args:
+            config: Agent configuration object.
+            llm_provider: Optional LLMProvider instance. If provided, the
+                agent uses this provider instead of the singleton LLM.
+                Supports both LLMProvider (from core.providers) and
+                LangChain-style callables.
+        """
         self.config = config
-        self.llm = get_singleton_llm()  # Use singleton LLM to prevent multiple model loading
+        self.llm = llm_provider if llm_provider is not None else get_singleton_llm()
         self.kb = get_kb_interface(config.department)
+        self.access_control = AccessControl()
+        self.audit = get_audit_logger()
         self.tools = self._load_tools()
         self.crew_agent = self._create_crew_agent() if CREWAI_AVAILABLE else None
         self.tasks = []
@@ -177,6 +189,11 @@ class BaseAgent:
         if not self.tasks:
             return results
 
+        self.audit.log_agent_action(
+            self.config.id, self.config.department, "task.start",
+            details={"task_count": len(self.tasks)},
+        )
+
         # Check if we're in mock mode
         use_mock = os.environ.get('USE_MOCK_KB', 'false').lower() == 'true'
 
@@ -208,6 +225,11 @@ class BaseAgent:
 
         # Clear the task queue
         self.tasks = []
+
+        self.audit.log_agent_action(
+            self.config.id, self.config.department, "task.complete",
+            details={"result_count": len(results)},
+        )
 
         return results
 
@@ -364,6 +386,10 @@ Recommendation: Approach Sarah Johnson with a demo focused on coach management, 
 
     def direct_query(self, query: str, system_prompt: Optional[str] = None) -> str:
         """Direct query to the agent's LLM"""
+        self.audit.log_agent_action(
+            self.config.id, self.config.department, "query",
+            details={"query_length": len(query)},
+        )
         if system_prompt is None:
             system_prompt = f"""You are {self.config.role.name}. {self.config.role.description}
             Your goal is: {self.config.role.goal}

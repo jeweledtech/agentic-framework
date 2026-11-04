@@ -1,26 +1,17 @@
 """
-Enhanced LLM Singleton Manager with Ollama Integration
+Enhanced LLM Singleton Manager with Provider Integration
 
 CRITICAL ARCHITECTURE COMPONENT - Multi-Model AI Engine
 ========================================================
 
-This module implements a singleton pattern for LLM instances with Ollama
-integration, enabling agents to leverage different specialized models.
+This module implements a singleton pattern for LLM instances with provider-based
+backend selection. The LLMRegistry (from core.providers.llm) handles auto-detection
+and provider management while this module preserves backward compatibility.
 
-✅ RESOLVED CRITICAL ISSUES:
-   - Multiple model instantiation causing crashes
-   - Memory exhaustion during agent startup  
-   - System instability under concurrent load
-
-✅ ENHANCED FEATURES (Phase 4):
-   - Thread-safe singleton implementation with model selection
-   - Ollama integration with ChatOllama
-   - Multi-model support (llama3:8b, codellama:34b, etc.)
-   - Task-specific model routing
-   - Fallback to local models when Ollama unavailable
-
-Status: PRODUCTION-READY - Ollama Integration Complete
-Last Updated: 2025-06-16 (Phase 4 - Foundational AI Engine Upgrade)
+Public API (unchanged):
+  get_singleton_llm(model_name, task_type) — primary entry point
+  get_langchain_llm()                      — backward-compatible alias
+  get_llm()                                — backward-compatible alias
 """
 
 import os
@@ -32,7 +23,7 @@ from pathlib import Path
 PROJECT_DIR = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Define the model path
-MODEL_PATH = os.environ.get('MODEL_PATH', 
+MODEL_PATH = os.environ.get('MODEL_PATH',
                            str(PROJECT_DIR / 'models' / 'Llama-3.2-3B-Instruct' / 'Llama-3.2-3B-Instruct-Q4_K_M.gguf'))
 
 # LLM Configuration
@@ -45,6 +36,9 @@ LLM_CONFIG = {
 
 # Check if we're in mock mode
 USE_MOCK_KB = os.environ.get('USE_MOCK_KB', 'false').lower() == 'true'
+
+# Import the provider registry
+from core.providers.llm import LLMRegistry, LLMProvider
 
 # Check if LangChain and Ollama are available
 ENHANCED_LLM_AVAILABLE = False
@@ -68,13 +62,13 @@ except ImportError as e:
         def __init__(self, **kwargs):
             for key, value in kwargs.items():
                 setattr(self, key, value)
-        
+
         def _call(self, prompt: str, **kwargs) -> str:
             raise NotImplementedError("LLM not implemented")
-        
+
         def __call__(self, prompt: str, **kwargs) -> str:
             return self._call(prompt, **kwargs)
-        
+
         @property
         def _llm_type(self) -> str:
             return "mock_llm"
@@ -82,7 +76,7 @@ except ImportError as e:
     # Create a simple Field function to mimic Pydantic's Field
     def Field(default=None, **kwargs):
         return default
-        
+
     # Create a simple CallbackManagerForLLMRun class
     class CallbackManagerForLLMRun:
         pass
@@ -362,9 +356,28 @@ if LANGCHAIN_AVAILABLE:
 # Global enhanced singleton instance
 _enhanced_llm_singleton = EnhancedLLMSingleton()
 
+
 def get_singleton_llm(model_name: Optional[str] = None, task_type: Optional[str] = None):
-    """Get the singleton LLM instance with optional model selection"""
+    """Get the singleton LLM instance with optional model selection.
+
+    This function now delegates to the LLMRegistry when a provider is
+    explicitly configured via the LLM_PROVIDER env var. Otherwise it
+    falls back to the original EnhancedLLMSingleton behavior for full
+    backward compatibility.
+    """
+    provider_env = os.environ.get("LLM_PROVIDER", "").lower()
+
+    # If an explicit provider is configured, use the registry
+    if provider_env:
+        try:
+            registry = LLMRegistry()
+            return registry.get(provider_env)
+        except Exception as e:
+            print(f"Warning: LLM_PROVIDER={provider_env} failed ({e}), falling back to singleton")
+
+    # Default: use the original singleton behavior
     return _enhanced_llm_singleton.get_llm(model_name=model_name, task_type=task_type)
+
 
 # For backward compatibility
 def get_langchain_llm():

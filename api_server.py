@@ -12,7 +12,6 @@ from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 from typing import Dict, List, Any, Optional
 import os
-import sys
 import logging
 from datetime import datetime
 
@@ -20,12 +19,27 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Add the current directory to Python path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# Version from single source of truth
+try:
+    from core._version import __version__
+except ImportError:
+    __version__ = "0.0.0-dev"
 
 # Import framework components
 from agents.examples import ResearchAgent, WriterAgent
 from agents.executive_chat import ExecutiveChatAgent
+from core.audit import AuditEvent, AuditEventType, get_audit_logger
+from core.auth import (
+    AuthNotConfiguredError,
+    Principal,
+    auth_enabled,
+    authenticate,
+    current_principal,
+    load_api_keys,
+)
+from core.security import Permission, role_has_permission
+from core.approvals import ApprovalError, ApprovalStatus, get_approval_queue
+from contextlib import asynccontextmanager
 
 try:
     from core.crew import CrewBuilder, CREWAI_AVAILABLE
@@ -33,11 +47,28 @@ except ImportError:
     CrewBuilder = None
     CREWAI_AVAILABLE = False
 
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Refuse to start with auth enabled but no API keys (fail closed)."""
+    if auth_enabled():
+        if not load_api_keys():
+            raise RuntimeError(
+                "Authentication is enabled but no API key is configured. "
+                "Set FRAMEWORK_API_KEYS='key:department,...' (or FRAMEWORK_API_KEY), "
+                "or set ENABLE_AUTH=false for local development only."
+            )
+    else:
+        logger.warning("ENABLE_AUTH=false: API authentication is DISABLED. "
+                       "Do not run this configuration outside local development.")
+    yield
+
+
 # Initialize FastAPI app
 app = FastAPI(
     title="JeweledTech Agentic Framework",
     description="Open-source framework for building multi-agent AI systems",
-    version="1.0.0"
+    version=__version__,
+    lifespan=lifespan,
 )
 
 # Add CORS middleware
@@ -49,23 +80,93 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# API Key Security (for n8n integration)
+# Audit middleware — logs every request
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
+import time
+
+
+class AuditMiddleware(BaseHTTPMiddleware):
+    """Middleware that logs every API request to the audit log."""
+
+    async def dispatch(self, request: Request, call_next):
+        start = time.monotonic()
+        response = await call_next(request)
+        duration_ms = (time.monotonic() - start) * 1000
+
+        audit = get_audit_logger()
+        audit.log_api_request(
+            method=request.method,
+            path=str(request.url.path),
+            status_code=response.status_code,
+            client_ip=request.client.host if request.client else "",
+            details={"duration_ms": round(duration_ms, 2)},
+        )
+        return response
+
+
+app.add_middleware(AuditMiddleware)
+
+# API Key Security
+# Every route except "/" and "/health" depends on require(<permission>).
+# tests/api/test_route_protection.py enumerates all routes to enforce this.
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
-async def verify_api_key(api_key: str = Security(api_key_header)) -> str:
-    """Verify API key for protected endpoints"""
-    expected_key = os.getenv("FRAMEWORK_API_KEY")
-    enable_auth = os.getenv("ENABLE_AUTH", "false").lower() == "true"
 
-    if not enable_auth:
-        return "auth_disabled"
+async def get_principal(request: Request, api_key: Optional[str] = Security(api_key_header)) -> Principal:
+    """Authenticate the caller. 401 for a missing/invalid key, 503 if no keys exist."""
+    try:
+        principal = authenticate(api_key)
+    except AuthNotConfiguredError:
+        raise HTTPException(status_code=503,
+                            detail="Authentication is enabled but no API keys are configured")
+    if principal is None:
+        get_audit_logger().log(AuditEvent(
+            event_type=AuditEventType.API_AUTH_FAILURE,
+            actor_id=request.client.host if request.client else "",
+            action="api.auth",
+            resource=request.url.path,
+            details={"key_present": bool(api_key)},
+            outcome="failure",
+        ))
+        raise HTTPException(status_code=401, detail="Invalid or missing API key",
+                            headers={"WWW-Authenticate": "ApiKey"})
+    current_principal.set(principal)
+    return principal
 
-    if not api_key or api_key != expected_key:
-        raise HTTPException(
-            status_code=403,
-            detail="Invalid or missing API key"
-        )
-    return api_key
+
+# Backwards-compatible name
+verify_api_key = get_principal
+
+
+def require(permission: Permission, department: Optional[str] = None):
+    """Dependency: caller must hold *permission* (and belong to *department*,
+    unless their role has cross-department API_ALL)."""
+
+    async def dependency(request: Request, principal: Principal = Depends(get_principal)) -> Principal:
+        allowed = role_has_permission(principal.role, permission)
+        if allowed and department and principal.department != department:
+            allowed = role_has_permission(principal.role, Permission.API_ALL)
+        if not allowed:
+            get_audit_logger().log_permission_denied(
+                actor_id=principal.key_id,
+                department=principal.department,
+                permission=permission.value,
+                resource=request.url.path,
+            )
+            scope = f" for department '{department}'" if department else ""
+            raise HTTPException(status_code=403,
+                                detail=f"Permission denied: requires {permission.value}{scope}")
+        return principal
+
+    return dependency
+
+
+def session_for(principal: Principal, conversation_id: Optional[str]) -> str:
+    """Chat sessions are scoped to the calling key."""
+    return f"{principal.key_id}:{conversation_id or 'default'}"
+
 
 # Initialize example agents
 research_agent = ResearchAgent()
@@ -91,6 +192,12 @@ class ChatRequest(BaseModel):
     message: str
     conversation_id: Optional[str] = None
     context: Optional[Dict[str, Any]] = None
+
+class ResetRequest(BaseModel):
+    conversation_id: Optional[str] = None
+
+class RejectRequest(BaseModel):
+    reason: str = ""
 
 class AgentResponse(BaseModel):
     agent: str
@@ -133,7 +240,7 @@ def read_root():
     """Welcome endpoint with framework information"""
     return {
         "framework": "JeweledTech Agentic Framework",
-        "version": "1.0.0",
+        "version": __version__,
         "description": "Open-source framework for building multi-agent AI systems",
         "endpoints": {
             "/": "This welcome page",
@@ -162,7 +269,7 @@ def health_check():
     }
 
 @app.get("/agents")
-def list_agents():
+def list_agents(principal: Principal = Depends(require(Permission.API_READ))):
     """List available agents and their capabilities"""
     return {
         "agents": [
@@ -192,7 +299,7 @@ def list_agents():
     }
 
 @app.post("/research", response_model=AgentResponse)
-async def research_topic(request: ResearchRequest):
+async def research_topic(request: ResearchRequest, principal: Principal = Depends(require(Permission.AGENT_EXECUTE))):
     """Research a topic using the Research Agent"""
     try:
         result = research_agent.research_topic(
@@ -211,7 +318,7 @@ async def research_topic(request: ResearchRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/write", response_model=AgentResponse)
-async def write_content(request: WritingRequest):
+async def write_content(request: WritingRequest, principal: Principal = Depends(require(Permission.AGENT_EXECUTE))):
     """Generate written content using the Writer Agent"""
     try:
         result = writer_agent.write_blog_post(
@@ -232,7 +339,7 @@ async def write_content(request: WritingRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/collaborate")
-async def collaborate_agents(request: CollaborativeRequest):
+async def collaborate_agents(request: CollaborativeRequest, principal: Principal = Depends(require(Permission.AGENT_EXECUTE))):
     """
     Demonstrate multi-agent collaboration.
     The research agent gathers information, then the writer agent creates content.
@@ -278,7 +385,11 @@ async def collaborate_agents(request: CollaborativeRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/crew/create")
-async def create_crew(agent_ids: List[str], crew_name: str = "Custom Crew"):
+async def create_crew(
+    agent_ids: List[str],
+    crew_name: str = "Custom Crew",
+    principal: Principal = Depends(require(Permission.AGENT_CREATE)),
+):
     """
     Create a crew of agents for complex tasks.
     Requires CrewAI to be installed (pip install -r requirements-crewai.txt).
@@ -318,7 +429,7 @@ async def create_crew(agent_ids: List[str], crew_name: str = "Custom Crew"):
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/chat")
-async def executive_chat(request: ChatRequest):
+async def executive_chat(request: ChatRequest, principal: Principal = Depends(require(Permission.AGENT_EXECUTE))):
     """
     Executive Chat endpoint - AI-powered conversational interface.
     
@@ -332,7 +443,8 @@ async def executive_chat(request: ChatRequest):
             context={
                 "conversation_id": request.conversation_id,
                 **(request.context or {})
-            }
+            },
+            session_id=session_for(principal, request.conversation_id),
         )
         
         return {
@@ -347,7 +459,7 @@ async def executive_chat(request: ChatRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/chat/analyze")
-async def analyze_business_request(request: Dict[str, Any]):
+async def analyze_business_request(request: Dict[str, Any], principal: Principal = Depends(require(Permission.AGENT_EXECUTE))):
     """
     Analyze a business request and provide structured insights.
     """
@@ -360,9 +472,13 @@ async def analyze_business_request(request: Dict[str, Any]):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/chat/reset")
-async def reset_chat():
-    """Reset the conversation history."""
-    executive_chat_agent.reset_conversation()
+async def reset_chat(
+    request: Optional[ResetRequest] = None,
+    principal: Principal = Depends(require(Permission.AGENT_EXECUTE)),
+):
+    """Reset the caller's own conversation history (other callers are unaffected)."""
+    conversation_id = request.conversation_id if request else None
+    executive_chat_agent.reset_conversation(session_for(principal, conversation_id))
     return {"status": "success", "message": "Conversation history reset"}
 
 # ============================================================
@@ -372,7 +488,7 @@ async def reset_chat():
 @app.post("/n8n/webhook")
 async def n8n_webhook(
     request: N8NWebhookRequest,
-    api_key: str = Depends(verify_api_key)
+    principal: Principal = Depends(require(Permission.API_WRITE))
 ):
     """
     Generic webhook endpoint for n8n workflows.
@@ -397,7 +513,8 @@ async def n8n_webhook(
             # Custom processing via executive chat
             result = executive_chat_agent.chat(
                 message=str(request.payload),
-                context={"workflow_id": request.workflow_id, "source": "n8n"}
+                context={"workflow_id": request.workflow_id, "source": "n8n"},
+                session_id=session_for(principal, f"n8n:{request.workflow_id}"),
             )
 
         return {
@@ -447,7 +564,7 @@ async def process_marketing_webhook(payload: Dict[str, Any]) -> Dict[str, Any]:
 @app.post("/sales/process-lead")
 async def process_lead(
     request: SalesLeadRequest,
-    api_key: str = Depends(verify_api_key)
+    principal: Principal = Depends(require(Permission.AGENT_EXECUTE, department="sales"))
 ):
     """
     Process a new sales lead from n8n CRM integration.
@@ -470,7 +587,8 @@ async def process_lead(
 
         response = executive_chat_agent.chat(
             message=analysis_prompt,
-            context={"lead_source": request.lead_source, "type": "lead_analysis"}
+            context={"lead_source": request.lead_source, "type": "lead_analysis"},
+            session_id=session_for(principal, "lead_analysis"),
         )
 
         return {
@@ -490,7 +608,7 @@ async def process_lead(
 @app.post("/sales/qualify-lead")
 async def qualify_lead(
     request: SalesQualifyRequest,
-    api_key: str = Depends(verify_api_key)
+    principal: Principal = Depends(require(Permission.AGENT_EXECUTE, department="sales"))
 ):
     """
     Qualify a lead against ICP (Ideal Customer Profile) criteria.
@@ -518,7 +636,8 @@ async def qualify_lead(
 
         response = executive_chat_agent.chat(
             message=qualification_prompt,
-            context={"type": "icp_qualification"}
+            context={"type": "icp_qualification"},
+            session_id=session_for(principal, "icp_qualification"),
         )
 
         return {
@@ -535,7 +654,7 @@ async def qualify_lead(
 @app.post("/marketing/generate-content")
 async def generate_marketing_content(
     request: MarketingRequest,
-    api_key: str = Depends(verify_api_key)
+    principal: Principal = Depends(require(Permission.AGENT_EXECUTE, department="marketing"))
 ):
     """
     Generate marketing content using AI agents.
@@ -585,7 +704,7 @@ async def generate_marketing_content(
 @app.post("/marketing/analyze-campaign")
 async def analyze_campaign(
     request: MarketingRequest,
-    api_key: str = Depends(verify_api_key)
+    principal: Principal = Depends(require(Permission.AGENT_EXECUTE, department="marketing"))
 ):
     """
     Analyze marketing campaign performance.
@@ -610,7 +729,8 @@ async def analyze_campaign(
 
         response = executive_chat_agent.chat(
             message=analysis_prompt,
-            context={"type": "campaign_analysis"}
+            context={"type": "campaign_analysis"},
+            session_id=session_for(principal, "campaign_analysis"),
         )
 
         return {
@@ -623,12 +743,57 @@ async def analyze_campaign(
         logger.error(f"Campaign analysis error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# Run the server
-if __name__ == "__main__":
+# ============================================================
+# Human approval of agent actions
+# ============================================================
+
+@app.get("/approvals")
+async def list_approvals(
+    status: Optional[ApprovalStatus] = None,
+    principal: Principal = Depends(require(Permission.API_ADMIN)),
+):
+    """List agent actions waiting for (or decided by) a human approver."""
+    return {"approvals": [a.to_dict() for a in get_approval_queue().list(status=status)]}
+
+
+@app.post("/approvals/{action_id}/approve")
+async def approve_action(
+    action_id: str,
+    principal: Principal = Depends(require(Permission.API_ADMIN)),
+):
+    """Approve a pending action. It executes once, immediately."""
+    try:
+        return get_approval_queue().approve(action_id, approver=principal.key_id).to_dict()
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Unknown approval id")
+    except ApprovalError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+
+
+@app.post("/approvals/{action_id}/reject")
+async def reject_action(
+    action_id: str,
+    request: Optional[RejectRequest] = None,
+    principal: Principal = Depends(require(Permission.API_ADMIN)),
+):
+    """Reject a pending action. It will never execute."""
+    try:
+        return get_approval_queue().reject(
+            action_id, approver=principal.key_id,
+            reason=request.reason if request else "",
+        ).to_dict()
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Unknown approval id")
+    except ApprovalError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+
+
+def main():
+    """Entry point for the agentic-server CLI command."""
     import uvicorn
-    
+
     print("\n" + "="*60)
-    print("[*] JeweledTech Agentic Framework")
+    print(f"[*] JeweledTech Agentic Framework v{__version__}")
     print("="*60)
     print("\nStarting API server...")
     print("Documentation available at: http://localhost:8000/docs")
@@ -639,5 +804,10 @@ if __name__ == "__main__":
     print("\n[TIP] Try the /collaborate endpoint to see agents working together!")
     print("\n[INFO] Need production-ready agents? Visit https://jeweledtech.com/enterprise")
     print("="*60 + "\n")
-    
+
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
+# Run the server
+if __name__ == "__main__":
+    main()
