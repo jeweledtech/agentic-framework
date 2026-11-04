@@ -215,3 +215,9 @@ ziIQmS5y
 # -----------------------------------------------------------------------------
 # Uncomment if you decide to use Git LFS for specific large files
 # *.gguf filter=lfs diff=lfs merge=lfs -text
+
+# Local artifacts — keep out of commits
+.coverage
+Screenshot*.png
+Screenshot*.jpg
+Where We Left Off.txt
