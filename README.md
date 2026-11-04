@@ -11,8 +11,8 @@ This isn't just another AI agent creation tool. It's a blueprint for architectin
 | Metric | Count |
 |--------|-------|
 | **Departments** | 7 |
-| **AI Agents** | 15+ |
-| **n8n Workflows** | 87 |
+| **Python Agents** | 7 (Executive, Lead, Outreach, Content Marketing, Campaign, Research, Writer) |
+| **n8n Workflow Files** | 70 (incl. variants) |
 | **Tool Integrations** | 10+ |
 
 ---
@@ -53,11 +53,13 @@ provider = AnthropicProvider(model="claude-opus-4-6")
 
 ![JeweledTech Agentic Framework - Organization Chart](docs/images/org-chart.png)
 
-*7 departments with specialized AI agents and n8n workflow integrations*
+*7 Python agents plus n8n workflows across 7 departments*
 
 ---
 
 ## The 7 Departments
+
+> **Implementation status:** 7 agents ship as Python classes in `agents/` — Chief Executive (`executive_chat.py`), Sales Lead and Outreach (`sales/`), Content Marketing and Campaign (`marketing/`), plus the Research and Writer examples. The remaining roles below run as n8n workflows in `n8n_workflows/` (Engineering, Customer, BackOffice, Security, and the Inbound/Outbound Sales Managers).
 
 ### 1. Executive Department
 **Chief Executive Agent** - The central orchestrator that coordinates all department agents, makes strategic decisions, and provides business guidance.
@@ -104,7 +106,7 @@ provider = AnthropicProvider(model="claude-opus-4-6")
 
 ## n8n Workflow Integration
 
-The framework includes **87 pre-built n8n workflows** for business process automation:
+The framework includes **70 n8n workflow files** (including fixed/simplified variants) for business process automation:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -114,7 +116,7 @@ The framework includes **87 pre-built n8n workflows** for business process autom
 │                                                                 │
 │  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐        │
 │  │   Webhooks   │   │  Workflows   │   │ Credentials  │        │
-│  │  /sales-*    │   │  87 total    │   │  HubSpot     │        │
+│  │  /sales-*    │   │  70 files    │   │  HubSpot     │        │
 │  │  /marketing  │   │              │   │  Gmail/SMTP  │        │
 │  │  /proposal   │   │              │   │  Supabase    │        │
 │  └──────┬───────┘   └──────┬───────┘   └──────────────┘        │
@@ -137,7 +139,7 @@ The framework includes **87 pre-built n8n workflows** for business process autom
           ┌────────▼────────┐
           │   Agent Engine  │
           │  7 Departments  │
-          │   15+ Agents    │
+          │ 7 Agents + n8n  │
           └─────────────────┘
 ```
 
@@ -289,7 +291,7 @@ agentic-framework/
 │   ├── crew.py          # Crew orchestration (framework-agnostic)
 │   ├── llm_singleton.py # LLM management
 │   └── tools.py         # Tool implementations
-├── n8n_workflows/       # 87 workflow templates
+├── n8n_workflows/       # 70 workflow files
 │   ├── phase5/          # Advanced nurture sequences
 │   └── README.md        # Import instructions
 ├── demo-ui/
