@@ -85,9 +85,12 @@ jobs:
 
     - name: Test Docker image runs
       run: |
-        # Run with mock mode enabled so it doesn't need Ollama
+        # Run with mock mode enabled so it doesn't need Ollama.
+        # Auth fails closed, so the server refuses to start without a key;
+        # give it a throwaway CI-only key.
         docker run -d --name test-api \
           -e USE_MOCK_KB=true \
+          -e FRAMEWORK_API_KEY=ci-smoke-test-key \
           -e OLLAMA_HOST=http://localhost:11434 \
           -p 8000:8000 \
           agentic-framework:test
@@ -113,6 +116,14 @@ jobs:
         # Check health endpoint
         echo "Testing health endpoint..."
         curl -f http://localhost:8000/health || exit 1
+
+        # Protected route must reject a missing key and accept a valid one
+        echo "Testing auth enforcement..."
+        code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/agents)
+        if [ "$code" != "401" ] && [ "$code" != "403" ]; then
+          echo "Expected 401/403 without API key, got $code"; exit 1
+        fi
+        curl -f -H "X-API-Key: ci-smoke-test-key" http://localhost:8000/agents > /dev/null || exit 1
 
         # Cleanup
         docker stop test-api
